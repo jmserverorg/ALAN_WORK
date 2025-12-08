@@ -1,5 +1,6 @@
 using ALAN.Agent.Services;
 using ALAN.Agent.Services.Memory;
+using ALAN.Agent.Services.MCP;
 using ALAN.Agent.Plugins;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,6 +25,7 @@ builder.Logging.SetMinimumLevel(Enum.Parse<LogLevel>(logLevel));
 // Register services
 builder.Services.AddSingleton<StateManager>();
 builder.Services.AddSingleton<HumanInputHandler>();
+builder.Services.AddSingleton<CodeProposalService>();
 
 // Register memory services
 builder.Services.AddSingleton<ILongTermMemoryService, InMemoryLongTermMemoryService>();
@@ -32,6 +34,23 @@ builder.Services.AddSingleton<IShortTermMemoryService, InMemoryShortTermMemorySe
 // Register consolidation service (requires AIAgent, so it's registered after)
 builder.Services.AddSingleton<IMemoryConsolidationService, MemoryConsolidationService>();
 builder.Services.AddSingleton<BatchLearningService>();
+
+// Register MCP clients
+builder.Services.AddSingleton<IMCPServerClient, GitHubMCPClient>();
+builder.Services.AddSingleton<IMCPServerClient, MicrosoftLearnMCPClient>();
+builder.Services.AddSingleton<MCPClientManager>(sp =>
+{
+    var manager = new MCPClientManager(sp.GetRequiredService<ILogger<MCPClientManager>>());
+    
+    // Register all MCP clients
+    var clients = sp.GetServices<IMCPServerClient>();
+    foreach (var client in clients)
+    {
+        manager.RegisterClient(client);
+    }
+    
+    return manager;
+});
 
 // Configure and register UsageTracker
 var maxLoopsPerDay = int.TryParse(
