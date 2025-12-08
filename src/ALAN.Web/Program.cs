@@ -1,12 +1,21 @@
 using ALAN.Web.Hubs;
 using ALAN.Web.Services;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorPages();
-builder.Services.AddControllers();
-builder.Services.AddSignalR();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+builder.Services.AddSignalR()
+    .AddJsonProtocol(options =>
+    {
+        options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 builder.Services.AddSingleton<AgentStateService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<AgentStateService>());
 
