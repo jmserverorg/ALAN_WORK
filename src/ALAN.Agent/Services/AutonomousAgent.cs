@@ -12,15 +12,18 @@ public class AutonomousAgent
     private readonly AgentThread _thread;
     private readonly ILogger<AutonomousAgent> _logger;
     private readonly StateManager _stateManager;
+    private readonly UsageTracker _usageTracker;
     private bool _isRunning;
     private string _currentPrompt = "You are an autonomous AI agent. Think about interesting things and take actions to learn and explore.";
+    private int _consecutiveThrottles = 0;
 
-    public AutonomousAgent(AIAgent agent, ILogger<AutonomousAgent> logger, StateManager stateManager)
+    public AutonomousAgent(AIAgent agent, ILogger<AutonomousAgent> logger, StateManager stateManager, UsageTracker usageTracker)
     {
         _agent = agent;
         _thread = agent.GetNewThread();
         _logger = logger;
         _stateManager = stateManager;
+        _usageTracker = usageTracker;
     }
 
     public void UpdatePrompt(string prompt)
@@ -35,11 +38,37 @@ public class AutonomousAgent
         _isRunning = true;
         _logger.LogInformation("Autonomous agent started");
 
+        // Log initial usage stats
+        var stats = _usageTracker.GetTodayStats();
+        _logger.LogInformation("Today's usage: {Stats}", stats);
+
         while (_isRunning && !cancellationToken.IsCancellationRequested)
         {
             try
             {
+                // Check if we can execute another loop
+                if (!_usageTracker.CanExecuteLoop(out var reason))
+                {
+                    _logger.LogWarning("Agent throttled: {Reason}", reason);
+                    _stateManager.UpdateStatus(AgentStatus.Throttled);
+
+                    _consecutiveThrottles++;
+
+                    // If throttled multiple times, increase wait time exponentially
+                    var waitMinutes = Math.Min(60, Math.Pow(2, _consecutiveThrottles));
+                    _logger.LogInformation("Waiting {Minutes} minutes before retry (attempt {Attempt})",
+                        waitMinutes, _consecutiveThrottles);
+
+                    await Task.Delay(TimeSpan.FromMinutes(waitMinutes), cancellationToken);
+                    continue;
+                }
+
+                _consecutiveThrottles = 0;
                 await ThinkAndActAsync(cancellationToken);
+
+                // Record the loop execution
+                _usageTracker.RecordLoop(estimatedTokens: 2000);
+
                 await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
             }
             catch (OperationCanceledException)
@@ -55,7 +84,9 @@ public class AutonomousAgent
             }
         }
 
-        _logger.LogInformation("Autonomous agent stopped");
+        // Log final usage stats
+        var finalStats = _usageTracker.GetTodayStats();
+        _logger.LogInformation("Agent stopped. Final usage: {Stats}", finalStats);
     }
 
     private async Task ThinkAndActAsync(CancellationToken cancellationToken)

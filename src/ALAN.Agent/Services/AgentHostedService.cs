@@ -12,18 +12,21 @@ public class AgentHostedService : BackgroundService
     private readonly ILoggerFactory _loggerFactory;
     private readonly AIAgent _aiAgent;
     private readonly StateManager _stateManager;
+    private readonly UsageTracker _usageTracker;
     private AutonomousAgent? _agent;
 
     public AgentHostedService(
         ILogger<AgentHostedService> logger,
         ILoggerFactory loggerFactory,
         AIAgent aiAgent,
-        StateManager stateManager)
+        StateManager stateManager,
+        UsageTracker usageTracker)
     {
         _logger = logger;
         _loggerFactory = loggerFactory;
         _aiAgent = aiAgent;
         _stateManager = stateManager;
+        _usageTracker = usageTracker;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -32,7 +35,8 @@ public class AgentHostedService : BackgroundService
 
         _agent = new AutonomousAgent(_aiAgent,
             _loggerFactory.CreateLogger<AutonomousAgent>(),
-            _stateManager);
+            _stateManager,
+            _usageTracker);
 
         try
         {

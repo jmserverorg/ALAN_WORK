@@ -22,6 +22,25 @@ builder.Logging.SetMinimumLevel(Enum.Parse<LogLevel>(logLevel));
 // Register services
 builder.Services.AddSingleton<StateManager>();
 
+// Configure and register UsageTracker
+var maxLoopsPerDay = int.TryParse(
+    builder.Configuration["AGENT_MAX_LOOPS_PER_DAY"]
+    ?? Environment.GetEnvironmentVariable("AGENT_MAX_LOOPS_PER_DAY")
+    ?? "4000",
+    out var loops) ? loops : 4000;
+
+var maxTokensPerDay = int.TryParse(
+    builder.Configuration["AGENT_MAX_TOKENS_PER_DAY"]
+    ?? Environment.GetEnvironmentVariable("AGENT_MAX_TOKENS_PER_DAY")
+    ?? "8000000",
+    out var tokens) ? tokens : 8_000_000;
+
+builder.Services.AddSingleton(sp =>
+    new UsageTracker(
+        sp.GetRequiredService<ILogger<UsageTracker>>(),
+        maxLoopsPerDay,
+        maxTokensPerDay));
+
 // Try to get Azure OpenAI configuration
 var endpoint = builder.Configuration["AzureOpenAI:Endpoint"]
     ?? builder.Configuration["AZURE_OPENAI_ENDPOINT"]

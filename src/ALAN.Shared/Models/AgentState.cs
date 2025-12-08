@@ -17,5 +17,6 @@ public enum AgentStatus
     Thinking,
     Acting,
     Paused,
+    Throttled,
     Error
 }
