@@ -5,6 +5,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorPages();
+builder.Services.AddControllers();
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<AgentStateService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<AgentStateService>());
@@ -27,6 +28,7 @@ app.UseRouting();
 app.UseAuthorization();
 
 app.MapRazorPages();
+app.MapControllers();
 app.MapHub<AgentHub>("/agenthub");
 
 app.Run();

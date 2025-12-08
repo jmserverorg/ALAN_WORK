@@ -82,12 +82,50 @@
 </div>
 
 @section Scripts {
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.14/signalr.min.js"></script>
     <script>
-        const connection = new signalR.HubConnectionBuilder()
-            .withUrl("/agenthub")
-            .withAutomaticReconnect()
-            .build();
+        let connection = null;
+        
+        function handleSignalRLoadError() {
+            console.warn('SignalR CDN not available, using polling fallback');
+            document.getElementById("connection-status").textContent = "Demo Mode (No Real-time Connection)";
+            document.getElementById("connection-status").className = "badge bg-info";
+            startPolling();
+        }
+        
+        function startPolling() {
+            // Poll for updates every 5 seconds
+            setInterval(async () => {
+                try {
+                    const response = await fetch('/api/state');
+                    if (response.ok) {
+                        const state = await response.json();
+                        updateAgentStatus(state);
+                        
+                        // Add any new thoughts
+                        if (state.recentThoughts && state.recentThoughts.length > 0) {
+                            state.recentThoughts.forEach(thought => addThought(thought));
+                        }
+                        
+                        // Add any new actions
+                        if (state.recentActions && state.recentActions.length > 0) {
+                            state.recentActions.forEach(action => addAction(action));
+                        }
+                    }
+                } catch (error) {
+                    console.error('Polling error:', error);
+                }
+            }, 5000);
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.14/signalr.min.js" 
+            onerror="handleSignalRLoadError()"></script>
+    <script>
+        // Initialize SignalR if library loaded successfully
+        if (typeof signalR !== 'undefined') {
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl("/agenthub")
+                .withAutomaticReconnect()
+                .build();
 
         connection.on("ReceiveStateUpdate", function (state) {
             updateAgentStatus(state);
@@ -121,6 +159,10 @@
             document.getElementById("connection-status").textContent = "Connected";
             document.getElementById("connection-status").className = "badge bg-success";
         });
+        } else {
+            // SignalR not available, will use polling
+            handleSignalRLoadError();
+        }
 
         function updateAgentStatus(state) {
             const statusBadge = document.getElementById("agent-status");
