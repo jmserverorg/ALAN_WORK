@@ -26,31 +26,31 @@ builder.Logging.SetMinimumLevel(Enum.Parse<LogLevel>(logLevel));
 builder.Services.AddSingleton<StateManager>();
 builder.Services.AddSingleton<HumanInputHandler>();
 builder.Services.AddSingleton<CodeProposalService>();
+builder.Services.AddSingleton<McpConfigurationService>();
 
 // Register memory services
-builder.Services.AddSingleton<ILongTermMemoryService, InMemoryLongTermMemoryService>();
+// Check if Azure Storage connection string is provided
+var storageConnectionString = builder.Configuration["AzureStorage:ConnectionString"]
+    ?? builder.Configuration["AZURE_STORAGE_CONNECTION_STRING"]
+    ?? Environment.GetEnvironmentVariable("AZURE_STORAGE_CONNECTION_STRING");
+
+if (!string.IsNullOrEmpty(storageConnectionString))
+{
+    builder.Services.AddSingleton<ILongTermMemoryService>(sp =>
+        new AzureBlobLongTermMemoryService(
+            storageConnectionString,
+            sp.GetRequiredService<ILogger<AzureBlobLongTermMemoryService>>()));
+}
+else
+{
+    builder.Services.AddSingleton<ILongTermMemoryService, InMemoryLongTermMemoryService>();
+}
+
 builder.Services.AddSingleton<IShortTermMemoryService, InMemoryShortTermMemoryService>();
 
 // Register consolidation service (requires AIAgent, so it's registered after)
 builder.Services.AddSingleton<IMemoryConsolidationService, MemoryConsolidationService>();
 builder.Services.AddSingleton<BatchLearningService>();
-
-// Register MCP clients
-builder.Services.AddSingleton<IMCPServerClient, GitHubMCPClient>();
-builder.Services.AddSingleton<IMCPServerClient, MicrosoftLearnMCPClient>();
-builder.Services.AddSingleton<MCPClientManager>(sp =>
-{
-    var manager = new MCPClientManager(sp.GetRequiredService<ILogger<MCPClientManager>>());
-    
-    // Register all MCP clients
-    var clients = sp.GetServices<IMCPServerClient>();
-    foreach (var client in clients)
-    {
-        manager.RegisterClient(client);
-    }
-    
-    return manager;
-});
 
 // Configure and register UsageTracker
 var maxLoopsPerDay = int.TryParse(
@@ -85,8 +85,7 @@ var deploymentName = builder.Configuration["AzureOpenAI:DeploymentName"]
     ?? Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT")
     ?? "gpt-4o-mini";
 
-
-// Register the ChatClient and create AIAgent
+// Register the ChatClient and create AIAgent with MCP tools
 builder.Services.AddSingleton<AIAgent>(sp =>
 {
     if (!string.IsNullOrEmpty(endpoint) && !string.IsNullOrEmpty(apiKey))
@@ -98,6 +97,11 @@ builder.Services.AddSingleton<AIAgent>(sp =>
         var agent = chatClient.CreateAIAgent(
             instructions: "You are an autonomous AI agent. Think about interesting things and take actions to learn and explore.",
             name: "ALAN Agent");
+        
+        // Load and configure MCP servers from YAML
+        var mcpConfigPath = Path.Combine(AppContext.BaseDirectory, "mcp-config.yaml");
+        var mcpService = sp.GetRequiredService<McpConfigurationService>();
+        mcpService.ConfigureMcpTools(agent, mcpConfigPath);
         
         return agent;
     }
@@ -117,3 +121,4 @@ builder.Services.AddHostedService<AgentHostedService>();
 var app = builder.Build();
 
 await app.RunAsync();
+

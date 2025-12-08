@@ -1,268 +1,231 @@
 # MCP Integration
 
-ALAN integrates with Model Context Protocol (MCP) servers to access external tools and services.
+ALAN integrates with Model Context Protocol (MCP) servers to access external tools and services through a YAML-based configuration system.
+
+## Configuration
+
+MCP servers are configured in `mcp-config.yaml`:
+
+```yaml
+mcp:
+  servers:
+    github:
+      command: npx
+      args:
+        - -y
+        - "@modelcontextprotocol/server-github"
+      env:
+        GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_PERSONAL_ACCESS_TOKEN}
+    
+    microsoft-learn:
+      command: npx
+      args:
+        - -y
+        - "@modelcontextprotocol/server-fetch"
+      env:
+        ALLOWED_DOMAINS: "learn.microsoft.com,docs.microsoft.com"
+```
+
+## How It Works
+
+1. **YAML Configuration**: The `mcp-config.yaml` file defines MCP servers with their connection details
+2. **Service Loading**: The `McpConfigurationService` loads the configuration at startup
+3. **Agent Integration**: When Agent Framework's MCP support is available, servers are connected and tools are registered with the AI agent
+4. **Tool Discovery**: MCP servers advertise available tools that the agent can use
+
+## Environment Variables
+
+MCP server configurations can reference environment variables using `${VARIABLE_NAME}` syntax:
+
+```yaml
+env:
+  GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_PERSONAL_ACCESS_TOKEN}
+```
+
+Set the variable before starting the agent:
+
+```bash
+export GITHUB_PERSONAL_ACCESS_TOKEN="your-token-here"
+```
 
 ## Available MCP Servers
 
 ### GitHub MCP Server
-Provides tools for interacting with GitHub repositories:
-- **list_repositories** - List repositories for an organization or user
-- **get_file_contents** - Get contents of a file from a repository
-- **list_commits** - List commits in a repository
-- **create_pull_request** - Create a pull request with code changes
-- **search_code** - Search for code across repositories
+Package: `@modelcontextprotocol/server-github`
 
-### Microsoft Learn MCP Server
-Provides access to Microsoft Learn documentation and learning resources:
-- **search_docs** - Search Microsoft Learn documentation
-- **get_article** - Get a specific article or documentation page
-- **list_learning_paths** - List available learning paths for a topic
-- **get_code_samples** - Get code samples for a specific technology
+**Tools:**
+- Repository operations (list, read files)
+- Commit history
+- Pull request management
+- Code search
+- Issue management
 
-## Usage
-
-### Connecting to MCP Servers
-
-MCP clients are automatically registered and can be accessed through the `MCPClientManager`:
-
-```csharp
-// Get the MCP client manager
-var mcpManager = serviceProvider.GetRequiredService<MCPClientManager>();
-
-// Connect to all servers
-await mcpManager.ConnectAllAsync();
-
-// Check connection status
-var status = mcpManager.GetConnectionStatus();
-// Returns: { "GitHub": true, "MicrosoftLearn": true }
+**Configuration:**
+```yaml
+github:
+  command: npx
+  args:
+    - -y
+    - "@modelcontextprotocol/server-github"
+  env:
+    GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_PERSONAL_ACCESS_TOKEN}
 ```
 
-### Listing Available Tools
+### Microsoft Learn MCP Server  
+Package: `@modelcontextprotocol/server-fetch`
 
-```csharp
-// List all tools from all servers
-var allTools = await mcpManager.ListAllToolsAsync();
+**Tools:**
+- Fetch web content
+- Documentation retrieval
+- Learning path access
 
-foreach (var (serverName, tools) in allTools)
-{
-    Console.WriteLine($"Server: {serverName}");
-    foreach (var tool in tools)
-    {
-        Console.WriteLine($"  - {tool.Name}: {tool.Description}");
-    }
-}
-```
-
-### Invoking Tools
-
-```csharp
-// Invoke a GitHub tool
-var response = await mcpManager.InvokeToolAsync(
-    "GitHub",
-    "list_repositories",
-    new Dictionary<string, object>
-    {
-        ["owner"] = "microsoft"
-    }
-);
-
-if (response.Success)
-{
-    Console.WriteLine($"Result: {response.Content}");
-    var repos = response.Data["repositories"];
-}
-```
-
-### Using Specific Clients
-
-```csharp
-// Get a specific MCP client
-var githubClient = mcpManager.GetClient("GitHub");
-
-if (githubClient != null && githubClient.IsConnected)
-{
-    var tools = await githubClient.ListToolsAsync();
-    
-    var response = await githubClient.InvokeToolAsync(
-        "get_file_contents",
-        new Dictionary<string, object>
-        {
-            ["owner"] = "microsoft",
-            ["repo"] = "vscode",
-            ["path"] = "README.md"
-        }
-    );
-}
+**Configuration:**
+```yaml
+microsoft-learn:
+  command: npx
+  args:
+    - -y
+    - "@modelcontextprotocol/server-fetch"
+  env:
+    ALLOWED_DOMAINS: "learn.microsoft.com,docs.microsoft.com"
 ```
 
 ## Adding New MCP Servers
 
 To add a new MCP server:
 
-1. Create a class implementing `IMCPServerClient`:
+1. Add server configuration to `mcp-config.yaml`:
+
+```yaml
+mcp:
+  servers:
+    my-server:
+      command: path/to/executable
+      args:
+        - --option1
+        - value1
+      env:
+        API_KEY: ${MY_API_KEY}
+```
+
+2. Set required environment variables
+3. Restart the agent
+
+The new server's tools will be automatically discovered and made available to the agent.
+
+## Current Implementation Status
+
+**Note**: The MCP integration is prepared for Agent Framework's MCP support. The current implementation:
+
+- ✅ Loads MCP configuration from YAML
+- ✅ Parses server definitions
+- ✅ Logs configuration details
+- ⏳ Awaiting Agent Framework MCP API availability for full integration
+
+When Agent Framework's MCP support becomes available, the `McpConfigurationService` will:
+1. Connect to configured MCP servers
+2. Discover available tools
+3. Register tools with the AI agent
+4. Enable the agent to invoke MCP tools
+
+## Usage in Agent
+
+Once fully integrated, the agent will automatically have access to MCP tools:
 
 ```csharp
-public class MyMCPClient : IMCPServerClient
-{
-    public string ServerName => "MyServer";
-    
-    public bool IsConnected { get; private set; }
-    
-    public async Task<bool> ConnectAsync(CancellationToken cancellationToken)
-    {
-        // Connection logic
-        IsConnected = true;
-        return true;
-    }
-    
-    public async Task<List<MCPTool>> ListToolsAsync(CancellationToken cancellationToken)
-    {
-        // Return list of available tools
-        return new List<MCPTool>
-        {
-            new MCPTool
-            {
-                Name = "my_tool",
-                Description = "Description of tool",
-                Parameters = new Dictionary<string, MCPParameter>
-                {
-                    ["param1"] = new MCPParameter
-                    {
-                        Name = "param1",
-                        Type = "string",
-                        Required = true
-                    }
-                }
-            }
-        };
-    }
-    
-    public async Task<MCPResponse> InvokeToolAsync(
-        string toolName,
-        Dictionary<string, object> parameters,
-        CancellationToken cancellationToken)
-    {
-        // Tool invocation logic
-        return new MCPResponse
-        {
-            Success = true,
-            Content = "Result"
-        };
-    }
-    
-    public async Task DisconnectAsync(CancellationToken cancellationToken)
-    {
-        IsConnected = false;
-    }
-}
+// The agent can naturally use MCP tools in its reasoning
+// Example agent thought: "I need to read a file from GitHub..."
+// The agent will automatically invoke the GitHub MCP tool
 ```
-
-2. Register the client in `Program.cs`:
-
-```csharp
-builder.Services.AddSingleton<IMCPServerClient, MyMCPClient>();
-```
-
-The client will be automatically registered with the `MCPClientManager`.
-
-## MCP Response Format
-
-All tool invocations return an `MCPResponse`:
-
-```csharp
-public class MCPResponse
-{
-    public bool Success { get; set; }
-    public string? Content { get; set; }
-    public Dictionary<string, object> Data { get; set; }
-    public string? Error { get; set; }
-}
-```
-
-## Error Handling
-
-MCP tool invocations handle errors gracefully:
-
-```csharp
-var response = await mcpManager.InvokeToolAsync(
-    "GitHub",
-    "invalid_tool",
-    new Dictionary<string, object>()
-);
-
-if (!response.Success)
-{
-    Console.WriteLine($"Error: {response.Error}");
-}
-```
-
-## Production Deployment
-
-### Connecting to Real MCP Servers
-
-In production, replace the simulated clients with actual MCP server connections:
-
-1. Install the MCP SDK package
-2. Configure server endpoints and authentication
-3. Update the client implementation to use the SDK
-
-Example:
-```csharp
-public class GitHubMCPClient : IMCPServerClient
-{
-    private readonly MCPClient _mcpClient;
-    
-    public GitHubMCPClient(IConfiguration config)
-    {
-        _mcpClient = new MCPClient(new MCPClientOptions
-        {
-            ServerUrl = config["MCP:GitHub:Url"],
-            ApiKey = config["MCP:GitHub:ApiKey"]
-        });
-    }
-    
-    // Implement interface methods using _mcpClient
-}
-```
-
-### Configuration
-
-Add MCP server configuration to `appsettings.json`:
-
-```json
-{
-  "MCP": {
-    "GitHub": {
-      "Url": "https://github-mcp.example.com",
-      "ApiKey": "your-api-key"
-    },
-    "MicrosoftLearn": {
-      "Url": "https://learn-mcp.microsoft.com",
-      "ApiKey": "your-api-key"
-    }
-  }
-}
-```
-
-## Integration with Agent
-
-The agent can use MCP tools through the `MCPClientManager`:
-
-1. Access GitHub repositories for self-improvement
-2. Search Microsoft Learn for best practices
-3. Retrieve code samples for learning
-4. Create pull requests for code changes
-
-The MCP integration enables the agent to:
-- Read and analyze its own source code
-- Propose improvements based on learned patterns
-- Access external knowledge sources
-- Interact with development tools and services
 
 ## Security Considerations
 
-1. **Authentication** - Secure MCP server credentials
-2. **Authorization** - Validate permissions before tool invocation
-3. **Rate Limiting** - Respect API rate limits
-4. **Input Validation** - Validate parameters before sending to MCP servers
-5. **Audit Logging** - Log all MCP tool invocations for security audits
+### API Keys and Tokens
+- Store sensitive values in environment variables
+- Never commit tokens to source control
+- Use Azure Key Vault for production deployments
+- Rotate tokens regularly
+
+### Domain Restrictions
+For fetch-based servers, restrict allowed domains:
+
+```yaml
+env:
+  ALLOWED_DOMAINS: "trusted-domain.com,another-domain.com"
+```
+
+### Command Execution
+- MCP servers execute as separate processes
+- Validate server sources before adding to configuration
+- Monitor resource usage of MCP server processes
+
+## Troubleshooting
+
+### MCP Configuration Not Loading
+- Verify `mcp-config.yaml` exists in the application directory
+- Check YAML syntax validity
+- Review logs for parsing errors
+
+### Environment Variables Not Resolved
+- Ensure variables are set before starting the agent
+- Use `${VAR_NAME}` syntax in YAML
+- Check variable names match exactly (case-sensitive)
+
+### Server Connection Issues
+- Verify server command is accessible (e.g., `npx` is in PATH)
+- Check network connectivity for remote servers
+- Review server-specific logs
+
+## Examples
+
+### Full Configuration Example
+
+```yaml
+mcp:
+  servers:
+    github:
+      command: npx
+      args:
+        - -y
+        - "@modelcontextprotocol/server-github"
+      env:
+        GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_PERSONAL_ACCESS_TOKEN}
+    
+    filesystem:
+      command: npx
+      args:
+        - -y
+        - "@modelcontextprotocol/server-filesystem"
+      env:
+        ALLOWED_DIRECTORIES: "/path/to/allowed,/another/path"
+    
+    custom-api:
+      command: python
+      args:
+        - /path/to/custom-mcp-server.py
+      env:
+        API_ENDPOINT: ${CUSTOM_API_ENDPOINT}
+        API_KEY: ${CUSTOM_API_KEY}
+```
+
+### Starting with Environment Variables
+
+```bash
+# Set required environment variables
+export GITHUB_PERSONAL_ACCESS_TOKEN="ghp_xxx"
+export CUSTOM_API_ENDPOINT="https://api.example.com"
+export CUSTOM_API_KEY="xxx"
+
+# Start the agent
+cd src/ALAN.Agent
+dotnet run
+```
+
+## Future Enhancements
+
+- Hot-reload of MCP configuration without restart
+- MCP server health monitoring
+- Tool usage analytics and logging
+- Automatic retry for failed tool invocations
+- Support for MCP server authentication methods
+- Integration with Azure-hosted MCP servers
