@@ -6,10 +6,14 @@ ALAN is a Semantic Kernel-based autonomous agent solution that runs continuously
 ## Features
 
 - **Autonomous Operation**: The agent runs in an infinite loop, continuously thinking and taking actions
+- **Self-Improvement**: Batch learning process that consolidates memories and extracts learnings
+- **Memory Architecture**: Short-term and long-term memory with automatic consolidation
 - **Observable**: Real-time web interface showing agent thoughts, actions, and current state
-- **Steerable**: Update the agent's directive through prompt configuration
+- **Steerable**: Update the agent's directive through prompt configuration and REST API
+- **Human Steering**: REST API for controlling agent behavior (pause, resume, update goals)
 - **Azure-Ready**: Deployable to Azure App Service with included deployment templates
 - **Real-time Updates**: Uses SignalR for live updates from the agent to the web interface
+- **Batch Learning**: Periodic consolidation of memories into actionable insights
 
 ## Architecture
 
@@ -19,31 +23,64 @@ The solution consists of three main components:
 2. **ALAN.Web**: An ASP.NET Core web application with SignalR for real-time observability
 3. **ALAN.Shared**: Shared models and contracts between agent and web interface
 
+### Memory System
+
+ALAN includes a sophisticated memory architecture:
+- **Short-term Memory**: Working memory for current context (in-memory or Redis)
+- **Long-term Memory**: Persistent storage for experiences (in-memory or Azure AI Search)
+- **Memory Consolidation**: Batch process that extracts learnings from memories
+- **Automatic Cleanup**: Removes outdated low-importance memories
+
+See [Memory Architecture Documentation](docs/MEMORY_ARCHITECTURE.md) for details.
+
+### Human Steering
+
+Control the agent through REST API endpoints:
+- Update agent prompts/directives
+- Pause/resume execution
+- Trigger batch learning manually
+- Query current state
+
+See [Human Steering API Documentation](docs/HUMAN_STEERING_API.md) for details.
+
 ## Prerequisites
 
 - .NET 8.0 SDK or later
-- OpenAI API key (or Azure OpenAI)
+- Azure OpenAI API key (or OpenAI API key)
 - Docker (optional, for containerized deployment)
 - Azure subscription (for cloud deployment)
 
 ## Configuration
 
-Set your OpenAI API key in one of the following ways:
+### Required: Azure OpenAI
 
-1. Environment variable:
-   ```bash
-   export OPENAI_API_KEY="your-api-key-here"
-   ```
+Set your Azure OpenAI configuration:
 
-2. In `src/ALAN.Agent/appsettings.json`:
-   ```json
-   {
-     "OpenAI": {
-       "ApiKey": "your-api-key-here",
-       "ModelId": "gpt-4o-mini"
-     }
-   }
-   ```
+```bash
+export AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
+export AZURE_OPENAI_API_KEY="your-api-key-here"
+export AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4o-mini"
+```
+
+Or in `src/ALAN.Agent/appsettings.json`:
+```json
+{
+  "AzureOpenAI": {
+    "Endpoint": "https://your-resource.openai.azure.com/",
+    "ApiKey": "your-api-key-here",
+    "DeploymentName": "gpt-4o-mini"
+  }
+}
+```
+
+### Optional: Usage Limits
+
+Configure cost controls (default shown):
+
+```bash
+export AGENT_MAX_LOOPS_PER_DAY="4000"
+export AGENT_MAX_TOKENS_PER_DAY="8000000"
+```
 
 ## Running Locally
 
@@ -122,9 +159,25 @@ The web interface provides real-time visibility into:
 You can customize the agent's behavior by:
 
 1. Modifying the default prompt in `AutonomousAgent.cs`
-2. Adding new plugins to the Semantic Kernel
-3. Implementing custom actions and skills
-4. Adjusting the thinking loop interval
+2. Adjusting batch learning intervals in `BatchLearningService.cs`
+3. Configuring memory retention policies
+4. Implementing custom actions and skills
+5. Adjusting the thinking loop interval
+6. Using the Human Steering API to update directives at runtime
+
+### Batch Learning Configuration
+
+The batch learning process runs when:
+- 100 iterations have passed (configurable)
+- OR 4 hours have elapsed since the last batch
+
+To change these thresholds, modify the `ShouldRunBatch` method in `BatchLearningService.cs`.
+
+### Memory Configuration
+
+Memory services can be swapped for production backends:
+- Replace `InMemoryLongTermMemoryService` with Azure AI Search implementation
+- Replace `InMemoryShortTermMemoryService` with Redis Cache implementation
 
 ## Project Structure
 
