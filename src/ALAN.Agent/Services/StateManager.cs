@@ -10,8 +10,14 @@ public class StateManager
     private readonly ConcurrentDictionary<string, AgentAction> _actionDict = new();
     private AgentState _currentState = new();
     private readonly object _lock = new();
+    private readonly StatePublisher? _statePublisher;
     
     public event EventHandler<AgentState>? StateChanged;
+
+    public StateManager(StatePublisher? statePublisher = null)
+    {
+        _statePublisher = statePublisher;
+    }
     
     public void AddThought(AgentThought thought)
     {
@@ -24,6 +30,9 @@ public class StateManager
         }
         
         UpdateState();
+        
+        // Publish to web service
+        _ = _statePublisher?.PublishThoughtAsync(thought);
     }
     
     public void AddAction(AgentAction action)
@@ -41,12 +50,18 @@ public class StateManager
         }
         
         UpdateState();
+        
+        // Publish to web service
+        _ = _statePublisher?.PublishActionAsync(action);
     }
     
     public void UpdateAction(AgentAction action)
     {
         _actionDict[action.Id] = action;
         UpdateState();
+        
+        // Publish to web service
+        _ = _statePublisher?.PublishActionAsync(action);
     }
     
     public void UpdateStatus(AgentStatus status)
@@ -58,6 +73,9 @@ public class StateManager
         }
         
         NotifyStateChanged();
+        
+        // Publish full state to web service
+        _ = _statePublisher?.PublishStateAsync(GetCurrentState());
     }
     
     public void UpdateGoal(string goal)
@@ -69,6 +87,9 @@ public class StateManager
         }
         
         NotifyStateChanged();
+        
+        // Publish full state to web service
+        _ = _statePublisher?.PublishStateAsync(GetCurrentState());
     }
     
     public void UpdatePrompt(string prompt)
@@ -80,6 +101,9 @@ public class StateManager
         }
         
         NotifyStateChanged();
+        
+        // Publish full state to web service
+        _ = _statePublisher?.PublishStateAsync(GetCurrentState());
     }
     
     public AgentState GetCurrentState()

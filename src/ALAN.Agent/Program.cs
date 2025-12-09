@@ -23,8 +23,13 @@ var logLevel = builder.Configuration["LOGGING_LEVEL"]
     ?? "Information";
 builder.Logging.SetMinimumLevel(Enum.Parse<LogLevel>(logLevel));
 
-// Register services
-builder.Services.AddSingleton<StateManager>();
+// Register StatePublisher first (optional dependency)
+builder.Services.AddSingleton<StatePublisher>();
+
+// Register StateManager with StatePublisher
+builder.Services.AddSingleton<StateManager>(sp => 
+    new StateManager(sp.GetService<StatePublisher>()));
+
 builder.Services.AddSingleton<HumanInputHandler>();
 builder.Services.AddSingleton<CodeProposalService>();
 builder.Services.AddSingleton<McpConfigurationService>();
