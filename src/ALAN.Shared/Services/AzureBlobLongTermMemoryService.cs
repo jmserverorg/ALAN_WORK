@@ -63,7 +63,7 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
             return memory.Id;
         }
 
-        var blobName = $"{memory.Timestamp:yyyy/MM/dd}/{memory.Id}.json";
+        var blobName = $"{memory.Timestamp:yyyy/MM/dd}/m-{memory.Id}.json";
         var blobClient = _containerClient.GetBlobClient(blobName);
 
         var json = JsonSerializer.Serialize(memory, new JsonSerializerOptions { WriteIndented = true });
@@ -129,7 +129,7 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
             for (int daysBack = 0; daysBack < 30; daysBack++)
             {
                 var date = now.AddDays(-daysBack);
-                var blobName = $"{date:yyyy/MM/dd}/{id}.json";
+                var blobName = $"{date:yyyy/MM/dd}/m-{id}.json";
                 var blobClient = _containerClient.GetBlobClient(blobName);
 
                 if (await blobClient.ExistsAsync(cancellationToken))
@@ -296,7 +296,7 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
             for (int daysBack = 0; daysBack < 30; daysBack++)
             {
                 var date = now.AddDays(-daysBack);
-                var blobName = $"{date:yyyy/MM/dd}/{id}.json";
+                var blobName = $"{date:yyyy/MM/dd}/m-{id}.json";
                 var blobClient = _containerClient.GetBlobClient(blobName);
 
                 if (await blobClient.ExistsAsync(cancellationToken))
