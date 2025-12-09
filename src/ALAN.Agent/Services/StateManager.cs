@@ -34,7 +34,8 @@ public class StateManager
         
         UpdateState();
         
-        // Store thought in long-term memory for persistence
+        // Store thought in both short-term (for web access) and long-term memory
+        _ = _shortTermMemory.SetAsync($"thought:{thought.Id}", thought, TimeSpan.FromHours(24));
         _ = StoreThoughtAsync(thought);
     }
     
@@ -54,7 +55,8 @@ public class StateManager
         
         UpdateState();
         
-        // Store action in long-term memory for persistence
+        // Store action in both short-term (for web access) and long-term memory
+        _ = _shortTermMemory.SetAsync($"action:{action.Id}", action, TimeSpan.FromHours(24));
         _ = StoreActionAsync(action);
     }
     
@@ -63,7 +65,8 @@ public class StateManager
         _actionDict[action.Id] = action;
         UpdateState();
         
-        // Update action in long-term memory
+        // Update action in both short-term and long-term memory
+        _ = _shortTermMemory.SetAsync($"action:{action.Id}", action, TimeSpan.FromHours(24));
         _ = StoreActionAsync(action);
     }
     
@@ -142,8 +145,32 @@ public class StateManager
 
     private void PersistState()
     {
-        // Store current state in short-term memory for web service to pull
-        _ = _shortTermMemory.SetAsync("agent:current_state", GetCurrentState(), TimeSpan.FromHours(1));
+        // Store current state in both short-term and long-term memory
+        var state = GetCurrentState();
+        _ = _shortTermMemory.SetAsync("agent:current-state", state, TimeSpan.FromHours(1));
+        
+        // Also store in long-term memory as a special memory entry for cross-process access
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var stateMemory = new MemoryEntry
+                {
+                    Id = $"agent-state-{DateTime.UtcNow:yyyyMMddHHmmssfff}".ToLowerInvariant(),
+                    Type = MemoryType.Decision,
+                    Content = System.Text.Json.JsonSerializer.Serialize(state),
+                    Summary = $"Agent State - Status: {state.Status}, Goal: {state.CurrentGoal}",
+                    Importance = 1.0,
+                    Tags = new List<string> { "agent-state", "system" },
+                    Timestamp = DateTime.UtcNow
+                };
+                await _longTermMemory.StoreMemoryAsync(stateMemory);
+            }
+            catch
+            {
+                // Silently fail
+            }
+        });
     }
 
     private async Task StoreThoughtAsync(AgentThought thought)

@@ -18,10 +18,6 @@ var builder = Host.CreateApplicationBuilder(args);
 // Configure logging
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
-var logLevel = builder.Configuration["LOGGING_LEVEL"]
-    ?? Environment.GetEnvironmentVariable("LOGGING_LEVEL")
-    ?? "Information";
-builder.Logging.SetMinimumLevel(Enum.Parse<LogLevel>(logLevel));
 
 // Register services
 builder.Services.AddSingleton<StateManager>();
@@ -29,25 +25,25 @@ builder.Services.AddSingleton<HumanInputHandler>();
 builder.Services.AddSingleton<CodeProposalService>();
 builder.Services.AddSingleton<McpConfigurationService>();
 
-// Register memory services
-// Check if Azure Storage connection string is provided
+// Register memory services - Azure Storage is required
 var storageConnectionString = builder.Configuration["AzureStorage:ConnectionString"]
     ?? builder.Configuration["AZURE_STORAGE_CONNECTION_STRING"]
     ?? Environment.GetEnvironmentVariable("AZURE_STORAGE_CONNECTION_STRING");
 
-if (!string.IsNullOrEmpty(storageConnectionString))
+if (string.IsNullOrEmpty(storageConnectionString))
 {
-    builder.Services.AddSingleton<ILongTermMemoryService>(sp =>
-        new AzureBlobLongTermMemoryService(
-            storageConnectionString,
-            sp.GetRequiredService<ILogger<AzureBlobLongTermMemoryService>>()));
-}
-else
-{
-    builder.Services.AddSingleton<ILongTermMemoryService, InMemoryLongTermMemoryService>();
+    throw new InvalidOperationException("Azure Storage connection string is required. Set AZURE_STORAGE_CONNECTION_STRING environment variable or AzureStorage:ConnectionString in appsettings.json");
 }
 
-builder.Services.AddSingleton<IShortTermMemoryService, InMemoryShortTermMemoryService>();
+builder.Services.AddSingleton<ILongTermMemoryService>(sp =>
+    new AzureBlobLongTermMemoryService(
+        storageConnectionString,
+        sp.GetRequiredService<ILogger<AzureBlobLongTermMemoryService>>()));
+
+builder.Services.AddSingleton<IShortTermMemoryService>(sp =>
+    new AzureBlobShortTermMemoryService(
+        storageConnectionString,
+        sp.GetRequiredService<ILogger<AzureBlobShortTermMemoryService>>()));
 
 // Register consolidation service (requires AIAgent, so it's registered after)
 builder.Services.AddSingleton<IMemoryConsolidationService, MemoryConsolidationService>();

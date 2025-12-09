@@ -5,7 +5,7 @@ namespace ALAN.Shared.Models;
 /// </summary>
 public class MemoryEntry
 {
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string Id { get; set; } = Guid.NewGuid().ToString().ToLowerInvariant();
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     public MemoryType Type { get; set; }
     public string Content { get; set; } = string.Empty;
@@ -34,7 +34,7 @@ public enum MemoryType
 /// </summary>
 public class ConsolidatedLearning
 {
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string Id { get; set; } = Guid.NewGuid().ToString().ToLowerInvariant();
     public DateTime Created { get; set; } = DateTime.UtcNow;
     public string Topic { get; set; } = string.Empty;
     public string Summary { get; set; } = string.Empty;

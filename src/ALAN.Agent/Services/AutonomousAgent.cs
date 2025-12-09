@@ -149,7 +149,7 @@ public class AutonomousAgent
         _stateManager.UpdateStatus(AgentStatus.Thinking);
 
         // Store current time to short-term memory
-        await _shortTermMemory.SetAsync("last_think_time", DateTime.UtcNow, TimeSpan.FromHours(1), cancellationToken);
+        await _shortTermMemory.SetAsync("last-think-time", DateTime.UtcNow, TimeSpan.FromHours(1), cancellationToken);
 
         // Record observation
         var observation = new AgentThought

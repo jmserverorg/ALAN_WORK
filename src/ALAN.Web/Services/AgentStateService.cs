@@ -40,7 +40,7 @@ public class AgentStateService : BackgroundService
             try
             {
                 await PullStateFromMemoryAsync(stoppingToken);
-                await Task.Delay(TimeSpan.FromSeconds(2), stoppingToken);
+                await Task.Delay(TimeSpan.FromMilliseconds(500), stoppingToken);
             }
             catch (OperationCanceledException)
             {
@@ -58,8 +58,58 @@ public class AgentStateService : BackgroundService
 
     private async Task PullStateFromMemoryAsync(CancellationToken cancellationToken)
     {
-        // Pull current state from short-term memory
-        var currentState = await _shortTermMemory.GetAsync<AgentState>("agent:current_state", cancellationToken);
+        // Pull current state from long-term memory (shared across processes)
+        var stateMemories = await _longTermMemory.GetRecentMemoriesAsync(1, cancellationToken);
+        var stateMemory = stateMemories.FirstOrDefault(m => m.Tags.Contains("agent-state"));
+        
+        AgentState? currentState = null;
+        if (stateMemory != null)
+        {
+            try
+            {
+                currentState = System.Text.Json.JsonSerializer.Deserialize<AgentState>(stateMemory.Content);
+            }
+            catch
+            {
+                // Failed to deserialize, will use default state
+            }
+        }
+        
+        // Pull recent thoughts and actions from long-term memory
+        var recentThoughts = await _longTermMemory.GetRecentMemoriesAsync(20, cancellationToken);
+        var recentActions = await _longTermMemory.GetRecentMemoriesAsync(15, cancellationToken);
+        
+        // Convert memories back to thoughts and actions
+        var thoughts = recentThoughts
+            .Where(m => m.Tags.Contains("thought"))
+            .Select(m => new AgentThought
+            {
+                Id = m.Id,
+                Type = m.Type switch
+                {
+                    MemoryType.Observation => ThoughtType.Observation,
+                    MemoryType.Decision => ThoughtType.Reasoning,
+                    MemoryType.Reflection => ThoughtType.Reflection,
+                    _ => ThoughtType.Observation
+                },
+                Content = m.Content,
+                Timestamp = m.Timestamp
+            })
+            .OrderBy(t => t.Timestamp)
+            .ToList();
+            
+        var actions = recentActions
+            .Where(m => m.Tags.Contains("action"))
+            .Select(m => new AgentAction
+            {
+                Id = m.Id,
+                Name = m.Tags.FirstOrDefault(t => t != "action" && !t.Contains("completed") && !t.Contains("pending")) ?? "unknown",
+                Description = m.Summary,
+                Status = m.Tags.Contains("completed") ? ActionStatus.Completed : ActionStatus.Pending,
+                Timestamp = m.Timestamp
+            })
+            .OrderBy(a => a.Timestamp)
+            .ToList();
         
         if (currentState != null)
         {
@@ -74,43 +124,50 @@ public class AgentStateService : BackgroundService
                 await _hubContext.Clients.All.SendAsync("ReceiveStateUpdate", _state, cancellationToken);
                 _logger.LogDebug("Broadcasted state update: {Status}", _state.Status);
             }
-
-            // Broadcast new thoughts
-            if (currentState.RecentThoughts != null)
+        }
+        else
+        {
+            // No state in memory yet, create default
+            _state = new AgentState
             {
-                foreach (var thought in currentState.RecentThoughts.Where(t => !_seenThoughtIds.Contains(t.Id)))
-                {
-                    await _hubContext.Clients.All.SendAsync("ReceiveThought", thought, cancellationToken);
-                    _seenThoughtIds.Add(thought.Id);
-                    _logger.LogDebug("Broadcasted thought: {Type}", thought.Type);
-                }
-            }
+                CurrentGoal = "Waiting for autonomous agent to start",
+                Status = AgentStatus.Idle
+            };
+        }
 
-            // Broadcast new actions
-            if (currentState.RecentActions != null)
-            {
-                foreach (var action in currentState.RecentActions.Where(a => !_seenActionIds.Contains(a.Id)))
-                {
-                    await _hubContext.Clients.All.SendAsync("ReceiveAction", action, cancellationToken);
-                    _seenActionIds.Add(action.Id);
-                    _logger.LogDebug("Broadcasted action: {Name}", action.Name);
-                }
-            }
+        // Populate state with recent thoughts and actions for API endpoint
+        _state.RecentThoughts = thoughts.TakeLast(20).ToList();
+        _state.RecentActions = actions.TakeLast(15).ToList();
 
-            // Cleanup old IDs to prevent memory bloat
-            if (_seenThoughtIds.Count > 1000)
-            {
-                var toRemove = _seenThoughtIds.Take(_seenThoughtIds.Count - 500).ToList();
-                foreach (var id in toRemove)
-                    _seenThoughtIds.Remove(id);
-            }
+        // Broadcast new thoughts
+        foreach (var thought in thoughts.Where(t => !_seenThoughtIds.Contains(t.Id)))
+        {
+            await _hubContext.Clients.All.SendAsync("ReceiveThought", thought, cancellationToken);
+            _seenThoughtIds.Add(thought.Id);
+            _logger.LogDebug("Broadcasted thought: {Type}", thought.Type);
+        }
 
-            if (_seenActionIds.Count > 500)
-            {
-                var toRemove = _seenActionIds.Take(_seenActionIds.Count - 250).ToList();
-                foreach (var id in toRemove)
-                    _seenActionIds.Remove(id);
-            }
+        // Broadcast new actions  
+        foreach (var action in actions.Where(a => !_seenActionIds.Contains(a.Id)))
+        {
+            await _hubContext.Clients.All.SendAsync("ReceiveAction", action, cancellationToken);
+            _seenActionIds.Add(action.Id);
+            _logger.LogDebug("Broadcasted action: {Name}", action.Name);
+        }
+
+        // Cleanup old IDs to prevent memory bloat
+        if (_seenThoughtIds.Count > 1000)
+        {
+            var toRemove = _seenThoughtIds.Take(_seenThoughtIds.Count - 500).ToList();
+            foreach (var id in toRemove)
+                _seenThoughtIds.Remove(id);
+        }
+
+        if (_seenActionIds.Count > 500)
+        {
+            var toRemove = _seenActionIds.Take(_seenActionIds.Count - 250).ToList();
+            foreach (var id in toRemove)
+                _seenActionIds.Remove(id);
         }
     }
     

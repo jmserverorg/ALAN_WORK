@@ -84,15 +84,18 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
             metadata[$"tag{i}"] = TruncateForMetadata(memory.Tags[i], 50);
         }
 
-        var options = new BlobUploadOptions
-        {
-            Metadata = metadata,
-            HttpHeaders = new BlobHttpHeaders { ContentType = "application/json" }
-        };
-
         try
         {
-            await blobClient.UploadAsync(stream, options, cancellationToken);
+            // Upload blob with overwrite
+            var uploadOptions = new BlobUploadOptions
+            {
+                HttpHeaders = new BlobHttpHeaders { ContentType = "application/json" }
+            };
+            await blobClient.UploadAsync(stream, uploadOptions, cancellationToken);
+            
+            // Set metadata after upload
+            await blobClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
+            
             _logger.LogDebug("Stored memory {Id} of type {Type} to blob {BlobName}", memory.Id, memory.Type, blobName);
         }
         catch (Exception ex)
