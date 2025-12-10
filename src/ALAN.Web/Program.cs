@@ -1,3 +1,4 @@
+using ALAN.Shared.Services.Memory;
 using ALAN.Web.Hubs;
 using ALAN.Web.Services;
 using System.Text.Json.Serialization;
@@ -16,6 +17,27 @@ builder.Services.AddSignalR()
     {
         options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
+
+// Register memory services (same as Agent for shared state) - Azure Storage is required
+var storageConnectionString = builder.Configuration["AzureStorage:ConnectionString"]
+    ?? builder.Configuration["AZURE_STORAGE_CONNECTION_STRING"]
+    ?? Environment.GetEnvironmentVariable("AZURE_STORAGE_CONNECTION_STRING");
+
+if (string.IsNullOrEmpty(storageConnectionString))
+{
+    throw new InvalidOperationException("Azure Storage connection string is required. Set AZURE_STORAGE_CONNECTION_STRING environment variable or AzureStorage:ConnectionString in appsettings.json");
+}
+
+builder.Services.AddSingleton<ILongTermMemoryService>(sp =>
+    new AzureBlobLongTermMemoryService(
+        storageConnectionString,
+        sp.GetRequiredService<ILogger<AzureBlobLongTermMemoryService>>()));
+
+builder.Services.AddSingleton<IShortTermMemoryService>(sp =>
+    new AzureBlobShortTermMemoryService(
+        storageConnectionString,
+        sp.GetRequiredService<ILogger<AzureBlobShortTermMemoryService>>()));
+
 builder.Services.AddSingleton<AgentStateService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<AgentStateService>());
 
