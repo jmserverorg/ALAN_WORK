@@ -155,7 +155,7 @@ public class AutonomousAgent
         var observation = new AgentThought
         {
             Type = ThoughtType.Observation,
-            Content = $"Current time: {DateTime.UtcNow:HH:mm:ss}. Current prompt: {_currentPrompt}"
+            Content = _currentPrompt
         };
         _stateManager.AddThought(observation);
         _logger.LogInformation("Agent observed: {Content}", observation.Content);
@@ -164,7 +164,7 @@ public class AutonomousAgent
         var observationMemory = new MemoryEntry
         {
             Type = MemoryType.Observation,
-            Content = observation.Content,
+            Content = _currentPrompt,
             Summary = "Agent observation",
             Importance = 0.3,
             Tags = new List<string> { "observation", "system" }
@@ -219,7 +219,7 @@ Example:
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during thinking process");
-            
+
             // Store error to long-term memory
             var errorMemory = new MemoryEntry
             {
@@ -240,9 +240,9 @@ Example:
         try
         {
             // Try to parse as JSON
-            var actionPlan = JsonSerializer.Deserialize<ActionPlan>(response, new JsonSerializerOptions 
-            { 
-                PropertyNameCaseInsensitive = true 
+            var actionPlan = JsonSerializer.Deserialize<ActionPlan>(response, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
             });
 
             if (actionPlan != null && !string.IsNullOrEmpty(actionPlan.Action))
@@ -274,7 +274,7 @@ Please execute this action and provide:
 
 Be specific and detailed in your response.";
                 // Simulate action execution
-                var result=await _agent.RunAsync(prompt, _thread, cancellationToken: cancellationToken);
+                var result = await _agent.RunAsync(prompt, _thread, cancellationToken: cancellationToken);
 
                 action.Status = ActionStatus.Completed;
                 action.Output = $"Completed: {result.Text}";

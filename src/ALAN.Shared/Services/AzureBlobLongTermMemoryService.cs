@@ -22,7 +22,7 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
         ILogger<AzureBlobLongTermMemoryService> logger)
     {
         _logger = logger;
-        
+
         try
         {
             var blobServiceClient = new BlobServiceClient(connectionString);
@@ -63,7 +63,7 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
             return memory.Id;
         }
 
-        var blobName = $"{memory.Timestamp:yyyy/MM/dd}/m-{memory.Id}.json";
+        var blobName = $"{memory.Timestamp:yyyy/MM/dd}/{memory.Id}.json";
         var blobClient = _containerClient.GetBlobClient(blobName);
 
         var json = JsonSerializer.Serialize(memory, new JsonSerializerOptions { WriteIndented = true });
@@ -92,10 +92,10 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
                 HttpHeaders = new BlobHttpHeaders { ContentType = "application/json" }
             };
             await blobClient.UploadAsync(stream, uploadOptions, cancellationToken);
-            
+
             // Set metadata after upload
             await blobClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
-            
+
             _logger.LogDebug("Stored memory {Id} of type {Type} to blob {BlobName}", memory.Id, memory.Type, blobName);
         }
         catch (Exception ex)
@@ -121,15 +121,15 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
             // 1. Maintaining an Azure Table Storage index of ID -> blob path
             // 2. Using a consistent naming scheme that includes the memory ID
             // 3. Adding a metadata tag for memory ID and using Azure Blob Index tags
-            
+
             // For now, we search recent dates first (most likely location)
             var now = DateTime.UtcNow;
-            
+
             // Search recent 30 days first (90% of lookups likely here)
             for (int daysBack = 0; daysBack < 30; daysBack++)
             {
                 var date = now.AddDays(-daysBack);
-                var blobName = $"{date:yyyy/MM/dd}/m-{id}.json";
+                var blobName = $"{date:yyyy/MM/dd}/{id}.json";
                 var blobClient = _containerClient.GetBlobClient(blobName);
 
                 if (await blobClient.ExistsAsync(cancellationToken))
@@ -137,12 +137,12 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
                     var response = await blobClient.DownloadContentAsync(cancellationToken);
                     var json = response.Value.Content.ToString();
                     var memory = JsonSerializer.Deserialize<MemoryEntry>(json);
-                    
+
                     if (memory != null)
                     {
                         await UpdateMemoryAccessAsync(id, cancellationToken);
                     }
-                    
+
                     return memory;
                 }
             }
@@ -174,50 +174,50 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
             // Search recent blobs (last 90 days) using date-based iteration
             var now = DateTime.UtcNow;
             var cutoffDate = now.AddDays(-90);
-        
-        // Iterate through days from most recent to cutoff
-        for (var date = now.Date; date >= cutoffDate.Date && results.Count < maxResults; date = date.AddDays(-1))
-        {
-            var prefix = $"{date:yyyy/MM/dd}/";
 
-            await foreach (var blobItem in _containerClient.GetBlobsAsync(
-                prefix: prefix,
-                traits: BlobTraits.Metadata,
-                cancellationToken: cancellationToken))
+            // Iterate through days from most recent to cutoff
+            for (var date = now.Date; date >= cutoffDate.Date && results.Count < maxResults; date = date.AddDays(-1))
             {
-                if (results.Count >= maxResults) break;
+                var prefix = $"{date:yyyy/MM/dd}/";
 
-                // Check if metadata matches query
-                bool matches = false;
-                if (blobItem.Metadata != null)
+                await foreach (var blobItem in _containerClient.GetBlobsAsync(
+                    prefix: prefix,
+                    traits: BlobTraits.Metadata,
+                    cancellationToken: cancellationToken))
                 {
-                    matches = blobItem.Metadata.Values.Any(v => v.ToLowerInvariant().Contains(queryLower));
-                }
+                    if (results.Count >= maxResults) break;
 
-                if (matches || blobItem.Name.Contains(queryLower, StringComparison.OrdinalIgnoreCase))
-                {
-                    var blobClient = _containerClient.GetBlobClient(blobItem.Name);
-                    try
+                    // Check if metadata matches query
+                    bool matches = false;
+                    if (blobItem.Metadata != null)
                     {
-                        var response = await blobClient.DownloadContentAsync(cancellationToken);
-                        var json = response.Value.Content.ToString();
-                        var memory = JsonSerializer.Deserialize<MemoryEntry>(json);
-                        
-                        if (memory != null && 
-                            (memory.Content.Contains(queryLower, StringComparison.OrdinalIgnoreCase) ||
-                             memory.Summary.Contains(queryLower, StringComparison.OrdinalIgnoreCase) ||
-                             memory.Tags.Any(t => t.Contains(queryLower, StringComparison.OrdinalIgnoreCase))))
-                        {
-                            results.Add(memory);
-                        }
+                        matches = blobItem.Metadata.Values.Any(v => v.ToLowerInvariant().Contains(queryLower));
                     }
-                    catch (Exception ex)
+
+                    if (matches || blobItem.Name.Contains(queryLower, StringComparison.OrdinalIgnoreCase))
                     {
-                        _logger.LogWarning(ex, "Failed to deserialize memory from blob {BlobName}", blobItem.Name);
+                        var blobClient = _containerClient.GetBlobClient(blobItem.Name);
+                        try
+                        {
+                            var response = await blobClient.DownloadContentAsync(cancellationToken);
+                            var json = response.Value.Content.ToString();
+                            var memory = JsonSerializer.Deserialize<MemoryEntry>(json);
+
+                            if (memory != null &&
+                                (memory.Content.Contains(queryLower, StringComparison.OrdinalIgnoreCase) ||
+                                 memory.Summary.Contains(queryLower, StringComparison.OrdinalIgnoreCase) ||
+                                 memory.Tags.Any(t => t.Contains(queryLower, StringComparison.OrdinalIgnoreCase))))
+                            {
+                                results.Add(memory);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to deserialize memory from blob {BlobName}", blobItem.Name);
+                        }
                     }
                 }
             }
-        }
 
             _logger.LogDebug("Search for '{Query}' returned {Count} results", query, results.Count);
             return results.OrderByDescending(m => m.Timestamp).ToList();
@@ -260,7 +260,7 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
                         var response = await blobClient.DownloadContentAsync(cancellationToken);
                         var json = response.Value.Content.ToString();
                         var memory = JsonSerializer.Deserialize<MemoryEntry>(json);
-                        
+
                         if (memory != null)
                         {
                             results.Add(memory);
@@ -296,7 +296,7 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
             for (int daysBack = 0; daysBack < 30; daysBack++)
             {
                 var date = now.AddDays(-daysBack);
-                var blobName = $"{date:yyyy/MM/dd}/m-{id}.json";
+                var blobName = $"{date:yyyy/MM/dd}/{id}.json";
                 var blobClient = _containerClient.GetBlobClient(blobName);
 
                 if (await blobClient.ExistsAsync(cancellationToken))
@@ -331,7 +331,7 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
             int count = 0;
             var now = DateTime.UtcNow;
             var cutoffDate = now.AddDays(-90);
-            
+
             for (var date = now.Date; date >= cutoffDate.Date; date = date.AddDays(-1))
             {
                 var prefix = $"{date:yyyy/MM/dd}/";
@@ -340,7 +340,7 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
                     count++;
                 }
             }
-            
+
             _logger.LogDebug("Memory count (last 90 days): {Count}", count);
             return count;
         }
@@ -378,8 +378,8 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
                 {
                     if (results.Count >= maxResults) break;
 
-                    if (blobItem.Metadata != null && 
-                        blobItem.Metadata.TryGetValue("type", out var metadataType) && 
+                    if (blobItem.Metadata != null &&
+                        blobItem.Metadata.TryGetValue("type", out var metadataType) &&
                         metadataType == typeString)
                     {
                         var blobClient = _containerClient.GetBlobClient(blobItem.Name);
@@ -388,7 +388,7 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
                             var response = await blobClient.DownloadContentAsync(cancellationToken);
                             var json = response.Value.Content.ToString();
                             var memory = JsonSerializer.Deserialize<MemoryEntry>(json);
-                            
+
                             if (memory != null && memory.Type == type)
                             {
                                 results.Add(memory);
@@ -423,7 +423,7 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
         // 1. Re-upload the blob with updated content
         // 2. Use a separate index/database for access tracking
         // 3. Use blob metadata (has limitations)
-        
+
         // For now, we'll log the access but not persist it to avoid re-uploading
         _logger.LogTrace("Memory {Id} accessed (not persisted to storage)", id);
         await Task.CompletedTask;
@@ -431,13 +431,47 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
 
     private static string TruncateForMetadata(string value, int maxLength)
     {
-        if (string.IsNullOrEmpty(value)) return string.Empty;
-        
-        // Azure Blob metadata values cannot contain newlines, tabs, or other control characters
-        // Replace them with spaces and remove any non-ASCII characters
-        var sanitized = System.Text.RegularExpressions.Regex.Replace(value, @"[\r\n\t\x00-\x1F\x7F-\x9F]", " ");
-        sanitized = sanitized.Trim();
-        
-        return sanitized.Length <= maxLength ? sanitized : sanitized.Substring(0, maxLength);
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        // Encode value to adhere to HTTP header rules per HeaderNameValueEncode logic:
+        // - Characters < 32 (except tab/9) are URL-encoded as %NN
+        // - Tab (9) is not URL-encoded
+        // - ASCII 127 is encoded as %7F
+        // - All other characters are not encoded
+        var sb = new System.Text.StringBuilder();
+        foreach (char ch in value)
+        {
+            if (ch == 9)
+            {
+                // Tab character - not encoded
+                sb.Append(ch);
+            }
+            else if (ch < 32)
+            {
+                // Control characters - URL encode
+                sb.AppendFormat("%{0:X2}", (int)ch);
+            }
+            else if (ch == 127)
+            {
+                // DEL character - URL encode
+                sb.Append("%7F");
+            }
+            else if (ch <= 255)
+            {
+                // Standard ASCII - not encoded
+                sb.Append(ch);
+            }
+            else
+            {
+                // Non-ASCII characters - URL encode
+                sb.AppendFormat("%{0:X2}", (int)ch);
+            }
+        }
+
+        var sanitized = sb.ToString().Trim();
+        return sanitized.Length <= maxLength ? sanitized : sanitized[..maxLength].TrimEnd();
     }
 }

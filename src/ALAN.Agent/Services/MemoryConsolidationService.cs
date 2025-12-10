@@ -78,14 +78,14 @@ Respond with ONLY a JSON object in this format:
 
             // Parse AI response
             var learning = ParseLearningResponse(response, memories);
-            
+
             _logger.LogInformation("Created consolidated learning on topic: {Topic}", learning.Topic);
             return learning;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to consolidate memories with AI, creating basic learning");
-            
+
             // Fallback: create basic learning without AI
             return new ConsolidatedLearning
             {
@@ -139,7 +139,7 @@ Respond with ONLY a JSON object in this format:
     {
         _learnings.Add(learning);
         _logger.LogInformation("Stored learning {Id} on topic {Topic}", learning.Id, learning.Topic);
-        
+
         // Also store as a memory for future reference
         var memory = new MemoryEntry
         {
@@ -164,19 +164,19 @@ Respond with ONLY a JSON object in this format:
         {
             _logger.LogError(ex, "Failed to store learning memory for {LearningId}", learning.Id);
         }
-        
+
         return true;
     }
 
     public async Task<List<MemoryEntry>> IdentifyOutdatedMemoriesAsync(CancellationToken cancellationToken = default)
     {
         var allMemories = await _longTermMemory.GetRecentMemoriesAsync(1000, cancellationToken);
-        
+
         // Identify memories that are:
         // 1. Older than 30 days with low access count
         // 2. Have low importance score
         // 3. Are errors that have been resolved
-        
+
         var cutoffDate = DateTime.UtcNow.AddDays(-30);
         var outdatedMemories = allMemories.Where(m =>
             (m.Timestamp < cutoffDate && m.AccessCount < 3) ||
@@ -191,7 +191,7 @@ Respond with ONLY a JSON object in this format:
     public async Task<int> CleanupOutdatedMemoriesAsync(CancellationToken cancellationToken = default)
     {
         var outdatedMemories = await IdentifyOutdatedMemoriesAsync(cancellationToken);
-        
+
         int deletedCount = 0;
         foreach (var memory in outdatedMemories)
         {
@@ -212,7 +212,7 @@ Respond with ONLY a JSON object in this format:
             // Try to extract JSON from the response
             var jsonStart = response.IndexOf('{');
             var jsonEnd = response.LastIndexOf('}');
-            
+
             if (jsonStart >= 0 && jsonEnd > jsonStart)
             {
                 var jsonStr = response.Substring(jsonStart, jsonEnd - jsonStart + 1);
