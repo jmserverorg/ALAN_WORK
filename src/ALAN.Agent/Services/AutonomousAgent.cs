@@ -173,15 +173,21 @@ For example, you can search GitHub for code examples, read documentation from Mi
 
 Respond with a JSON object containing:
 - reasoning: your thought process (mention if you plan to use any tools)
-- action: what you plan to do
-- goal: what you're trying to achieve
+- actions: the specific action(s) you will take as an array of:
+    - action: the action to perform
+    - goal: what you're trying to achieve
+    - extra (optional): any additional information
 
 Example:
 {{
   ""reasoning"": ""I should search GitHub for examples of autonomous agents to learn from them"",
-  ""action"": ""Search GitHub repositories for autonomous agent implementations"",
-  ""goal"": ""Learn from existing autonomous agent projects""
-}}";
+  ""actions"": [{{
+    ""action"": ""Search GitHub repositories for autonomous agent implementations"",
+    ""goal"": ""Learn from existing autonomous agent projects"",
+    ""extra"": ""I found several repositories that look promising:\n1. **Architecture**: abc from https://abc.com .\n2. **Semantic Kernel Integration**: The project incorporates Semantic Kernel, enhancing its AI capabilities. Ensuring a robust integration with Semantic Kernel can allow for more advanced reasoning and task handling in my implementation.""
+  }}]
+}}
+";
 
         try
         {
@@ -199,7 +205,6 @@ Example:
             else
             {
                 _logger.LogInformation("No tool calls detected in action execution");
-                _logger.LogTrace("Full Result: {Result} ", JsonSerializer.Serialize(result));
             }
             // Record reasoning
             var reasoning = new AgentThought
@@ -260,34 +265,39 @@ Example:
 
             var jsonString = jsonMatch.Success ? jsonMatch.Value : response;
 
-            // Try to parse as JSON
-            var actionPlan = JsonSerializer.Deserialize<ActionPlan>(jsonString, new JsonSerializerOptions
+            var options = new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true,
                 AllowTrailingCommas = true,
                 ReadCommentHandling = JsonCommentHandling.Skip
-            });
+            };
 
-            if (actionPlan != null && !string.IsNullOrEmpty(actionPlan.Action))
+            var singlePlan = JsonSerializer.Deserialize<ActionPlan>(jsonString, options);
+
+            foreach (var actionPlan in singlePlan.Actions ?? [])
             {
-                var action = new AgentAction
+                if (!string.IsNullOrEmpty(actionPlan.Action))
                 {
-                    Name = "ExecutePlan",
-                    Description = actionPlan.Action,
-                    Input = actionPlan.Reasoning ?? "",
-                    Status = ActionStatus.Running
-                };
+                    var action = new AgentAction
+                    {
+                        Name = "ExecutePlan",
+                        Description = actionPlan.Action,
+                        Input = $"{singlePlan.Reasoning} : {actionPlan.Goal} \n {actionPlan.Extra}",
+                        Status = ActionStatus.Running
+                    };
 
-                _stateManager.AddAction(action);
-                _stateManager.UpdateGoal(actionPlan.Goal ?? "General exploration");
+                    _stateManager.AddAction(action);
+                    _stateManager.UpdateGoal(actionPlan.Goal ?? "General exploration");
 
-                var prompt = $@"You are an autonomous AI agent executing an action based on your previous reasoning.
+                    var prompt = $@"You are an autonomous AI agent executing an action based on your previous reasoning.
 
 Current Goal: {actionPlan.Goal ?? "General exploration"}
 
-Reasoning: {actionPlan.Reasoning}
+Reasoning: {singlePlan.Reasoning}
 
 Action to Execute: {actionPlan.Action}
+
+{actionPlan.Extra}
 
 You have access to the following tools:
 - GitHub MCP Server: Search repositories, read code files, view commits, search code
@@ -305,29 +315,29 @@ Provide:
 4. Next steps or recommendations
 
 Be specific about which tools you use and what you discover.";
-                // Simulate action execution
-                var result = await _agent.RunAsync(prompt, _thread, cancellationToken: cancellationToken);
+                    // Simulate action execution
+                    var result = await _agent.RunAsync(prompt, _thread, cancellationToken: cancellationToken);
 
-                // Extract tool calls from action execution
-                var toolCalls = ExtractToolCalls(result);
-                if (toolCalls != null && toolCalls.Count > 0)
-                {
-                    _logger.LogInformation("Action used {Count} tool(s): {Tools}",
-                        toolCalls.Count,
-                        string.Join(", ", toolCalls.Select(t => t.ToolName)));
+                    // Extract tool calls from action execution
+                    var toolCalls = ExtractToolCalls(result);
+                    if (toolCalls != null && toolCalls.Count > 0)
+                    {
+                        _logger.LogInformation("Action used {Count} tool(s): {Tools}",
+                            toolCalls.Count,
+                            string.Join(", ", toolCalls.Select(t => t.ToolName)));
+                    }
+                    else
+                    {
+                        _logger.LogInformation("No tool calls detected in action execution");
+                    }
+
+                    action.Status = ActionStatus.Completed;
+                    action.Output = $"Completed: {result.Text}";
+                    action.ToolCalls = toolCalls;
+                    _stateManager.UpdateAction(action);
+
+                    _logger.LogInformation("Action completed: {Description}", action.Description);
                 }
-                else
-                {
-                    _logger.LogInformation("No tool calls detected in action execution");
-                    _logger.LogTrace("Full Result: {Result} ", JsonSerializer.Serialize(result));
-                }
-
-                action.Status = ActionStatus.Completed;
-                action.Output = $"Completed: {result.Text}";
-                action.ToolCalls = toolCalls;
-                _stateManager.UpdateAction(action);
-
-                _logger.LogInformation("Action completed: {Description}", action.Description);
             }
         }
         catch (JsonException jsonEx)
@@ -368,24 +378,26 @@ Be specific about which tools you use and what you discover.";
                     {
                         foreach (var content in message.Contents)
                         {
-                            // Check if this is a tool call content by checking its type name
+                            // Check if this is a function call by checking its type name
                             var contentTypeName = content.GetType().Name;
 
-                            if (contentTypeName.Contains("ToolCall", StringComparison.OrdinalIgnoreCase))
+                            if (contentTypeName.Contains("FunctionCall", StringComparison.OrdinalIgnoreCase))
                             {
                                 try
                                 {
-                                    _logger.LogTrace("Found tool call content of type: {TypeName}", contentTypeName as string);
+                                    _logger.LogTrace("Found function call content of type: {TypeName}", (string)contentTypeName);
+
+                                    // Extract function name from Name property
+                                    string? functionName = null;
+                                    if (content.GetType().GetProperty("Name")?.GetValue(content) is string name)
+                                    {
+                                        functionName = name;
+                                    }
+
                                     var toolCall = new ToolCall
                                     {
-                                        ToolName = content.ToolCallId?.ToString() ?? content.ToString() ?? "unknown"
+                                        ToolName = functionName ?? content.ToString() ?? "unknown"
                                     };
-
-                                    // Try to get more details if available
-                                    if (content.GetType().GetProperty("ToolName")?.GetValue(content) is string toolName)
-                                    {
-                                        toolCall.ToolName = toolName;
-                                    }
 
                                     toolCall.McpServer = DetermineMcpServer(toolCall.ToolName);
                                     toolCall.Success = true; // Assume success if we got the result
@@ -396,7 +408,7 @@ Be specific about which tools you use and what you discover.";
                                 }
                                 catch (Exception ex)
                                 {
-                                    _logger.LogWarning(ex, "Failed to extract details from tool call content");
+                                    _logger.LogWarning(ex, "Failed to extract details from function call content");
                                 }
                             }
                         }
@@ -439,9 +451,18 @@ Be specific about which tools you use and what you discover.";
     }
 }
 
-public class ActionPlan
+public struct ActionPlan
 {
     public string? Reasoning { get; set; }
-    public string? Action { get; set; }
+
+    public List<PlannedAction>? Actions { get; set; }
+}
+
+public struct PlannedAction
+{
+    public string Action { get; set; }
+
     public string? Goal { get; set; }
+
+    public string? Extra { get; set; }
 }
