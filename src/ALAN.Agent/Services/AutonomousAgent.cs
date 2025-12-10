@@ -414,9 +414,9 @@ Be specific about which tools you use and what you discover.";
                             {
                                 _logger.LogTrace("Found function result for CallId: {CallId}", functionResult.CallId);
 
-                                if (toolCalls.ContainsKey(functionResult.CallId))
+                                if (toolCalls.TryGetValue(functionResult.CallId, out var toolCall))
                                 {
-                                    toolCalls[functionResult.CallId].Result = functionResult.Result != null
+                                    toolCall.Result = functionResult.Result != null
                                         ? System.Text.Json.JsonSerializer.Serialize(functionResult.Result)
                                         : null;
 
