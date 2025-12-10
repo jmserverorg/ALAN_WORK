@@ -23,6 +23,8 @@ public class AutonomousAgent
     private string _currentPrompt = "You are an autonomous AI agent. Think about how to improve yourself.";
     private int _consecutiveThrottles = 0;
     private int _iterationCount = 0;
+    private List<MemoryEntry> _recentMemories = new();
+    private DateTime _lastMemoryLoad = DateTime.MinValue;
 
     public AutonomousAgent(
         AIAgent agent,
@@ -72,6 +74,9 @@ public class AutonomousAgent
         _isRunning = true;
         _logger.LogInformation("Autonomous agent started");
 
+        // Load initial memories from long-term storage
+        await LoadRecentMemoriesAsync(cancellationToken);
+
         // Log initial usage stats
         var stats = _usageTracker.GetTodayStats();
         _logger.LogInformation("Today's usage: {Stats}", stats);
@@ -120,6 +125,12 @@ public class AutonomousAgent
                 _consecutiveThrottles = 0;
                 await ThinkAndActAsync(cancellationToken);
 
+                // Refresh memories periodically (every 10 iterations or 1 hour)
+                if (_iterationCount % 10 == 0 || (DateTime.UtcNow - _lastMemoryLoad).TotalHours >= 1)
+                {
+                    await LoadRecentMemoriesAsync(cancellationToken);
+                }
+
                 // Record the loop execution
                 _usageTracker.RecordLoop(estimatedTokens: 2000);
                 _iterationCount++;
@@ -142,6 +153,49 @@ public class AutonomousAgent
         // Log final usage stats
         var finalStats = _usageTracker.GetTodayStats();
         _logger.LogInformation("Agent stopped. Final usage: {Stats}", finalStats);
+    }
+
+    /// <summary>
+    /// Loads recent memories and learnings from long-term storage to provide context for decision-making.
+    /// This ensures the agent builds on previous knowledge rather than starting from scratch each iteration.
+    /// </summary>
+    private async Task LoadRecentMemoriesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Loading recent memories from long-term storage...");
+            
+            // Get recent learnings (high importance, prioritized)
+            var learnings = await _longTermMemory.GetMemoriesByTypeAsync(MemoryType.Learning, maxResults: 10, cancellationToken);
+            
+            // Get recent successful actions
+            var successes = await _longTermMemory.GetMemoriesByTypeAsync(MemoryType.Success, maxResults: 10, cancellationToken);
+            
+            // Get recent reflections (high value for continuous improvement)
+            var reflections = await _longTermMemory.GetMemoriesByTypeAsync(MemoryType.Reflection, maxResults: 5, cancellationToken);
+            
+            // Get recent decisions
+            var decisions = await _longTermMemory.GetMemoriesByTypeAsync(MemoryType.Decision, maxResults: 10, cancellationToken);
+            
+            // Combine and sort by importance and recency
+            _recentMemories = learnings
+                .Concat(successes)
+                .Concat(reflections)
+                .Concat(decisions)
+                .OrderByDescending(m => m.Importance * 0.7 + (m.Timestamp > DateTime.UtcNow.AddDays(-7) ? 0.3 : 0))
+                .Take(20) // Limit to top 20 most relevant memories
+                .ToList();
+            
+            _lastMemoryLoad = DateTime.UtcNow;
+            
+            _logger.LogInformation("Loaded {Count} memories: {Learnings} learnings, {Successes} successes, {Reflections} reflections, {Decisions} decisions",
+                _recentMemories.Count, learnings.Count, successes.Count, reflections.Count, decisions.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load recent memories, continuing with empty context");
+            _recentMemories = new List<MemoryEntry>();
+        }
     }
 
     private async Task ThinkAndActAsync(CancellationToken cancellationToken)
@@ -167,12 +221,23 @@ You have access to the following tools:
 - GitHub MCP Server: Query repositories, read files, search code, view commits
 - Microsoft Learn MCP Server: Fetch documentation, search learning resources
 
-Previous thoughts and actions are stored in your memory.
-Think about what you should do next. Use the available tools when they would be helpful.
+IMPORTANT: Your memory from previous iterations is preserved below. Build upon this knowledge - don't start from scratch.
+
+## YOUR ACCUMULATED KNOWLEDGE ({_recentMemories.Count} memories loaded):
+{BuildMemoryContext()}
+
+Previous thoughts and actions are stored in your memory and shown above.
+Think about what you should do next based on your accumulated knowledge. Use the available tools when they would be helpful.
 For example, you can search GitHub for code examples, read documentation from Microsoft Learn, or analyze repository files.
 
+When making decisions, consider:
+1. What you've learned from previous iterations (shown above)
+2. What worked well in the past (successes)
+3. What insights you've gained (learnings and reflections)
+4. How to build incrementally on existing knowledge
+
 Respond with a JSON object containing:
-- reasoning: your thought process (mention if you plan to use any tools)
+- reasoning: your thought process (mention previous knowledge you're building on and if you plan to use any tools)
 - actions: the specific action(s) you will take as an array of:
     - action: the action to perform
     - goal: what you're trying to achieve
@@ -180,11 +245,11 @@ Respond with a JSON object containing:
 
 Example:
 {{
-  ""reasoning"": ""I should search GitHub for examples of autonomous agents to learn from them"",
+  ""reasoning"": ""Based on my previous learning about X, I should now explore Y. I'll use GitHub to search for examples."",
   ""actions"": [{{
-    ""action"": ""Search GitHub repositories for autonomous agent implementations"",
-    ""goal"": ""Learn from existing autonomous agent projects"",
-    ""extra"": ""I found several repositories that look promising:\n1. **Architecture**: abc from https://abc.com .\n2. **Semantic Kernel Integration**: The project incorporates Semantic Kernel, enhancing its AI capabilities. Ensuring a robust integration with Semantic Kernel can allow for more advanced reasoning and task handling in my implementation.""
+    ""action"": ""Search GitHub repositories for Y implementations"",
+    ""goal"": ""Build on my understanding of X by learning about Y"",
+    ""extra"": ""This extends my knowledge from iteration #123 where I learned about X""
   }}]
 }}
 ";
@@ -465,6 +530,54 @@ Be specific about which tools you use and what you discover.";
         if (lowerName.Contains("fetch") || lowerName.Contains("learn")) return "microsoft-learn";
 
         return null;
+    }
+
+    /// <summary>
+    /// Builds a formatted string containing relevant memory context for the current iteration.
+    /// This provides the agent with accumulated knowledge from previous iterations.
+    /// </summary>
+    private string BuildMemoryContext()
+    {
+        if (!_recentMemories.Any())
+        {
+            return "No previous memories available yet. This may be your first iteration.";
+        }
+
+        var context = new System.Text.StringBuilder();
+        
+        // Group memories by type for better organization
+        var groupedMemories = _recentMemories.GroupBy(m => m.Type).OrderByDescending(g => g.Key switch
+        {
+            MemoryType.Learning => 5,
+            MemoryType.Reflection => 4,
+            MemoryType.Success => 3,
+            MemoryType.Decision => 2,
+            _ => 1
+        });
+
+        foreach (var group in groupedMemories)
+        {
+            context.AppendLine($"\n### {group.Key} ({group.Count()} entries):");
+            
+            foreach (var memory in group.OrderByDescending(m => m.Importance).Take(5))
+            {
+                var age = (DateTime.UtcNow - memory.Timestamp).TotalHours;
+                var ageStr = age < 24 ? $"{age:F0}h ago" : $"{age / 24:F0}d ago";
+                
+                context.AppendLine($"- [{ageStr}, importance: {memory.Importance:F2}] {memory.Summary}");
+                
+                // Include full content for high-importance items
+                if (memory.Importance >= 0.8 && !string.IsNullOrEmpty(memory.Content) && memory.Content != memory.Summary)
+                {
+                    var contentPreview = memory.Content.Length > 200 
+                        ? memory.Content.Substring(0, 200) + "..." 
+                        : memory.Content;
+                    context.AppendLine($"  Details: {contentPreview}");
+                }
+            }
+        }
+
+        return context.ToString();
     }
 
     public void Stop()
