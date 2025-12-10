@@ -214,7 +214,7 @@ Example:
                 ToolCalls = toolCalls
             };
             _stateManager.AddThought(reasoning);
-            _logger.LogInformation("Agent reasoning: {Content}", response);
+            _logger.LogTrace("Agent reasoning: {Content}", response);
 
             // Parse and execute action
             await ParseAndExecuteActionAsync(response, cancellationToken);
@@ -274,7 +274,8 @@ Example:
 
             var singlePlan = JsonSerializer.Deserialize<ActionPlan>(jsonString, options);
 
-            foreach (var actionPlan in singlePlan.Actions ?? [])
+
+            Parallel.ForEach(singlePlan.Actions ?? [], async (actionPlan) =>
             {
                 if (!string.IsNullOrEmpty(actionPlan.Action))
                 {
@@ -338,7 +339,7 @@ Be specific about which tools you use and what you discover.";
 
                     _logger.LogInformation("Action completed: {Description}", action.Description);
                 }
-            }
+            });
         }
         catch (JsonException jsonEx)
         {
