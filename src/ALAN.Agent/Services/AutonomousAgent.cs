@@ -275,7 +275,7 @@ Example:
             var singlePlan = JsonSerializer.Deserialize<ActionPlan>(jsonString, options);
 
 
-            Parallel.ForEach(singlePlan.Actions ?? [], async (actionPlan) =>
+            await Parallel.ForEachAsync(singlePlan.Actions ?? [], async (actionPlan, cancellationToken) =>
             {
                 if (!string.IsNullOrEmpty(actionPlan.Action))
                 {
@@ -288,9 +288,11 @@ Example:
                     };
 
                     _stateManager.AddAction(action);
-                    _stateManager.UpdateGoal(actionPlan.Goal ?? "General exploration");
+                    try
+                    {
+                        _stateManager.UpdateGoal(actionPlan.Goal ?? "General exploration");
 
-                    var prompt = $@"You are an autonomous AI agent executing an action based on your previous reasoning.
+                        var prompt = $@"You are an autonomous AI agent executing an action based on your previous reasoning.
 
 Current Goal: {actionPlan.Goal ?? "General exploration"}
 
@@ -316,28 +318,37 @@ Provide:
 4. Next steps or recommendations
 
 Be specific about which tools you use and what you discover.";
-                    // Simulate action execution
-                    var result = await _agent.RunAsync(prompt, _thread, cancellationToken: cancellationToken);
+                        // Simulate action execution
+                        var result = await _agent.RunAsync(prompt, _thread, cancellationToken: cancellationToken);
 
-                    // Extract tool calls from action execution
-                    var toolCalls = ExtractToolCalls(result);
-                    if (toolCalls != null && toolCalls.Count > 0)
-                    {
-                        _logger.LogInformation("Action used {Count} tool(s): {Tools}",
-                            toolCalls.Count,
-                            string.Join(", ", toolCalls.Select(t => t.ToolName)));
+                        // Extract tool calls from action execution
+                        var toolCalls = ExtractToolCalls(result);
+                        if (toolCalls != null && toolCalls.Count > 0)
+                        {
+                            _logger.LogInformation("Action used {Count} tool(s): {Tools}",
+                                toolCalls.Count,
+                                string.Join(", ", toolCalls.Select(t => t.ToolName)));
+                        }
+                        else
+                        {
+                            _logger.LogInformation("No tool calls detected in action execution");
+                        }
+
+                        action.Status = ActionStatus.Completed;
+                        action.Output = $"Completed: {result.Text}";
+                        action.ToolCalls = toolCalls;
+                        _stateManager.UpdateAction(action);
+
+                        _logger.LogInformation("Action completed: {Description}", action.Description);
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        _logger.LogInformation("No tool calls detected in action execution");
+                        action.Status = ActionStatus.Failed;
+                        action.Output = $"Error: {ex.Message}";
+                        _stateManager.UpdateAction(action);
+
+                        _logger.LogError(ex, "Error executing action: {Description}", action.Description);
                     }
-
-                    action.Status = ActionStatus.Completed;
-                    action.Output = $"Completed: {result.Text}";
-                    action.ToolCalls = toolCalls;
-                    _stateManager.UpdateAction(action);
-
-                    _logger.LogInformation("Action completed: {Description}", action.Description);
                 }
             });
         }
