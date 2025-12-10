@@ -115,14 +115,33 @@ The solution uses VS Code's multi-target debugging. Configuration files:
 
 1. `AgentHostedService.ExecuteAsync()` starts the service
 2. `AutonomousAgent.RunAsync()` runs the infinite loop
-3. `UsageTracker.CanExecuteLoop()` checks daily limits
-4. `ThinkAndActAsync()` generates thoughts and actions
-5. `StateManager` stores thoughts/actions to **short-term memory only** (8-hour TTL)
-6. `MemoryConsolidationService.ConsolidateShortTermMemoryAsync()` runs every 6 hours to:
+3. **`LoadRecentMemoriesAsync()` loads accumulated knowledge** from long-term storage at startup
+4. `UsageTracker.CanExecuteLoop()` checks daily limits
+5. `ThinkAndActAsync()` generates thoughts and actions **with memory context** from previous iterations
+6. `StateManager` stores thoughts/actions to **short-term memory only** (8-hour TTL)
+7. **Memory refresh** occurs every 10 iterations or hourly to keep context current
+8. `MemoryConsolidationService.ConsolidateShortTermMemoryAsync()` runs every 6 hours to:
    - Read thoughts and actions from short-term memory
    - Evaluate importance of each item
    - Promote important items (importance ≥ 0.5) to long-term memory with "consolidated" tag
    - Extract learnings from consolidated memories
+
+### Memory Context in Agent Loop
+
+The agent maintains continuity across iterations through:
+- **Initial Load**: Loads top 20 memories at startup (learnings, successes, reflections, decisions)
+- **Periodic Refresh**: Updates memory context every 10 iterations or hourly
+- **Weighted Selection**: Combines importance (70%) and recency (30%) to prioritize relevant memories
+- **Prompt Integration**: Includes formatted memory context in each `ThinkAndActAsync()` prompt
+- **Additive Knowledge**: Memories are append-only, never overwritten
+
+Configuration constants in `AutonomousAgent.cs`:
+- `MAX_MEMORY_CONTEXT_SIZE = 20` - Max memories included in context
+- `MEMORY_REFRESH_INTERVAL_ITERATIONS = 10` - Iterations between refreshes
+- `MEMORY_REFRESH_INTERVAL_HOURS = 1` - Hours between refreshes
+- `IMPORTANCE_WEIGHT = 0.7` - Weight for importance in memory scoring
+- `RECENCY_WEIGHT = 0.3` - Weight for recency in memory scoring
+- `HIGH_IMPORTANCE_THRESHOLD = 0.8` - Threshold for including full content
 
 ### Web Update Flow
 
@@ -145,15 +164,53 @@ The solution uses VS Code's multi-target debugging. Configuration files:
 → Check `StateManager.AddThought()` and short-term memory storage
 → Verify `AgentStateService` is reading from short-term memory correctly
 
+**Agent has no memory of previous iterations:**
+→ Check `LoadRecentMemoriesAsync()` is being called at startup
+→ Verify long-term memory service is properly configured
+→ Review memory refresh logic (every 10 iterations or hourly)
+→ Check that `BuildMemoryContext()` is formatting memories correctly
+
 **SignalR connection failed:**
 → Falls back to polling mode automatically (see `Index.cshtml`)
 
 **Azure OpenAI authentication errors:**
 → Verify managed identity and endpoint configuration
 
+## Best Practices
+
+### Memory System
+
+**ALWAYS maintain knowledge continuity:**
+- Agent must load memories at startup via `LoadRecentMemoriesAsync()`
+- Include memory context in all AI prompts (see `ThinkAndActAsync()`)
+- Refresh memories periodically (current: every 10 iterations or hourly)
+- Never overwrite memories - only append via `StoreMemoryAsync()`
+
+**When modifying the agent loop:**
+- Ensure memory loading happens before first iteration
+- Include `BuildMemoryContext()` output in prompts
+- Maintain the importance + recency weighting system
+- Respect the additive-only memory pattern
+
+**When adding new memory types:**
+- Update `LoadRecentMemoriesAsync()` to include the new type
+- Adjust weights in `BuildMemoryContext()` grouping logic
+- Consider how the type affects importance calculations
+- Document any new memory patterns
+
+### Future Multi-Agent Considerations
+
+The architecture is prepared for multiple specialized agents:
+- Interface-based memory services enable shared or isolated stores
+- Memory tagging supports agent-specific filtering
+- MCP integration pattern allows agent-specific tools
+- Additive memory design prevents conflicts
+
 ## Quick Reference
 
 - **Agent Loop Interval**: 5 seconds (configurable in `AutonomousAgent`)
+- **Memory Refresh**: Every 10 iterations OR every 1 hour (whichever comes first)
+- **Memory Context Size**: Top 20 most relevant memories (importance × 0.7 + recency × 0.3)
 - **Cost Limits**: See `UsageTracker` (default: 4000 loops/day, 8M tokens/day)
 - **Storage**: Azurite on port 10000 (local), Azure Blob Storage (production)
 - **Short-term Memory TTL**: 8 hours for thoughts/actions, 1 hour for agent state
