@@ -88,14 +88,9 @@ if (string.IsNullOrEmpty(endpoint))
     throw new InvalidOperationException("Azure OpenAI endpoint is required. Set AZURE_OPENAI_ENDPOINT environment variable or AzureOpenAI:Endpoint in appsettings.json");
 }
 AzureOpenAIClient azureClient;
-if (!string.IsNullOrEmpty(apiKey))
-{
-    azureClient = new AzureOpenAIClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
-}
-else
-{
-    azureClient = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
-}
+azureClient = !string.IsNullOrEmpty(apiKey)
+    ? new AzureOpenAIClient(new Uri(endpoint), new AzureKeyCredential(apiKey))
+    : new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
 
 builder.Services.AddChatClient(azureClient.GetChatClient(deploymentName).AsIChatClient());
 
