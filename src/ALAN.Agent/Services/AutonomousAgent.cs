@@ -182,11 +182,15 @@ Example:
             var result = await _agent.RunAsync(prompt, _thread, cancellationToken: cancellationToken);
             var response = result.Text ?? result.ToString();
 
+            // Extract tool call information (minimal metadata)
+            var toolCalls = ExtractToolCalls(result);
+
             // Record reasoning
             var reasoning = new AgentThought
             {
                 Type = ThoughtType.Reasoning,
-                Content = response
+                Content = response,
+                ToolCalls = toolCalls
             };
             _stateManager.AddThought(reasoning);
             _logger.LogInformation("Agent reasoning: {Content}", response);
@@ -255,8 +259,12 @@ Be specific and detailed in your response.";
                 // Simulate action execution
                 var result = await _agent.RunAsync(prompt, _thread, cancellationToken: cancellationToken);
 
+                // Extract tool calls from action execution
+                var toolCalls = ExtractToolCalls(result);
+
                 action.Status = ActionStatus.Completed;
                 action.Output = $"Completed: {result.Text}";
+                action.ToolCalls = toolCalls;
                 _stateManager.UpdateAction(action);
 
                 _logger.LogInformation("Action completed: {Description}", action.Description);
@@ -274,6 +282,76 @@ Be specific and detailed in your response.";
         }
 
         _stateManager.UpdateStatus(AgentStatus.Idle);
+    }
+
+    private List<ToolCall>? ExtractToolCalls(dynamic result)
+    {
+        try
+        {
+            // Convert result to JSON with case-insensitive deserialization
+            var jsonOptions = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+            };
+
+            var resultJson = JsonSerializer.Serialize(result, jsonOptions);
+            var resultObj = JsonSerializer.Deserialize<JsonElement>(resultJson, jsonOptions);
+
+            var toolCalls = new List<ToolCall>();
+
+            // Try to find tool calls in various possible locations
+            JsonElement toolCallsElement;
+            if (resultObj.TryGetProperty("toolCalls", out toolCallsElement) ||
+                resultObj.TryGetProperty("ToolCalls", out toolCallsElement))
+            {
+                foreach (var tc in toolCallsElement.EnumerateArray())
+                {
+                    var toolCall = new ToolCall
+                    {
+                        ToolName = tc.TryGetProperty("name", out var name) ? name.GetString() ?? "unknown" : "unknown",
+                        Success = tc.TryGetProperty("status", out var status) ?
+                                  status.GetString()?.Equals("success", StringComparison.OrdinalIgnoreCase) ?? true : true
+                    };
+
+                    // Determine MCP server from tool name
+                    toolCall.McpServer = DetermineMcpServer(toolCall.ToolName);
+
+                    // Get result if available (keep it short - max 200 chars)
+                    if (tc.TryGetProperty("result", out var tcResult))
+                    {
+                        var resultStr = tcResult.ToString();
+                        toolCall.Result = resultStr.Length > 200 ? resultStr.Substring(0, 200) + "..." : resultStr;
+                    }
+
+                    // Get duration if available
+                    if (tc.TryGetProperty("durationMs", out var duration))
+                    {
+                        toolCall.DurationMs = duration.GetDouble();
+                    }
+
+                    toolCalls.Add(toolCall);
+                }
+            }
+
+            return toolCalls.Count > 0 ? toolCalls : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to extract tool calls from result");
+            return null;
+        }
+    }
+
+    private string? DetermineMcpServer(string toolName)
+    {
+        // Match tool names to MCP servers based on naming conventions
+        var lowerName = toolName.ToLowerInvariant();
+
+        if (lowerName.Contains("github")) return "github";
+        if (lowerName.Contains("fetch") || lowerName.Contains("learn")) return "microsoft-learn";
+
+        return null;
     }
 
     public void Stop()

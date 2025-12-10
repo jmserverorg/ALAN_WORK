@@ -81,6 +81,21 @@
     </div>
 </div>
 
+<!-- Detail View Modal -->
+<div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detailModalTitle">Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="detailModalContent"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script>
         let connection = null;
@@ -88,6 +103,10 @@
         let pollingActive = false;
         const seenThoughts = new Set();
         const seenActions = new Set();
+        
+        // Store full objects for detail view
+        const thoughts = [];
+        const actions = [];
         
         function handleSignalRLoadError() {
             console.warn('SignalR CDN not available, using polling fallback');
@@ -244,12 +263,23 @@
                 container.innerHTML = "";
             }
             
+            // Store for detail view
+            thoughts.unshift(thought);
+            if (thoughts.length > 100) thoughts.pop();
+            
+            // Check for MCP usage
+            const hasMcp = thought.toolCalls && thought.toolCalls.length > 0;
+            const mcpBadge = hasMcp ? `<span class="badge bg-info ms-1" title="${thought.toolCalls.length} tool calls">🔧 ${thought.toolCalls.length}</span>` : '';
+            
             const thoughtDiv = document.createElement("div");
             thoughtDiv.className = "mb-3 p-2 border-start border-3 border-" + getThoughtTypeColor(thought.type);
+            thoughtDiv.style.cursor = "pointer";
+            thoughtDiv.onclick = () => showThoughtDetail(thought.id);
             thoughtDiv.innerHTML = `
                 <small class="text-muted">${new Date(thought.timestamp).toLocaleTimeString()}</small>
                 <span class="badge bg-${getThoughtTypeColor(thought.type)} ms-2">${thought.type}</span>
-                <p class="mb-0 mt-1">${escapeHtml(thought.content)}</p>
+                ${mcpBadge}
+                <p class="mb-0 mt-1">${escapeHtml(truncate(thought.content, 200))}</p>
             `;
             
             container.insertBefore(thoughtDiv, container.firstChild);
@@ -268,16 +298,27 @@
                 container.innerHTML = "";
             }
             
+            // Store for detail view
+            actions.unshift(action);
+            if (actions.length > 50) actions.pop();
+            
+            // Check for MCP usage
+            const hasMcp = action.toolCalls && action.toolCalls.length > 0;
+            const mcpBadge = hasMcp ? `<span class="badge bg-info ms-1" title="${action.toolCalls.length} tool calls">🔧 ${action.toolCalls.length}</span>` : '';
+            
             const actionDiv = document.createElement("div");
             actionDiv.className = "mb-3 p-2 border rounded";
+            actionDiv.style.cursor = "pointer";
+            actionDiv.onclick = () => showActionDetail(action.id);
             actionDiv.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center">
                     <strong>${escapeHtml(action.name)}</strong>
                     <span class="badge bg-${getActionStatusColor(action.status)}">${action.status}</span>
                 </div>
                 <small class="text-muted">${new Date(action.timestamp).toLocaleTimeString()}</small>
-                <p class="mb-0 mt-1">${escapeHtml(action.description)}</p>
-                ${action.output ? `<small class="text-success">Output: ${escapeHtml(action.output)}</small>` : ''}
+                ${mcpBadge}
+                <p class="mb-0 mt-1">${escapeHtml(truncate(action.description, 150))}</p>
+                ${action.output ? `<small class="text-success">Output: ${escapeHtml(truncate(action.output, 100))}</small>` : ''}
             `;
             
             container.insertBefore(actionDiv, container.firstChild);
@@ -292,6 +333,131 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+        
+        function truncate(text, maxLength) {
+            if (!text) return '';
+            return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+        }
+        
+        function showThoughtDetail(thoughtId) {
+            const thought = thoughts.find(t => t.id === thoughtId);
+            if (!thought) return;
+            
+            let html = `
+                <div class="mb-3">
+                    <span class="badge bg-${getThoughtTypeColor(thought.type)} fs-6">${thought.type}</span>
+                    <small class="text-muted ms-3">${new Date(thought.timestamp).toLocaleString()}</small>
+                </div>
+                <div class="card mb-3">
+                    <div class="card-header"><strong>Content</strong></div>
+                    <div class="card-body">
+                        <pre class="mb-0" style="white-space: pre-wrap; font-family: inherit;">${escapeHtml(thought.content)}</pre>
+                    </div>
+                </div>
+            `;
+            
+            if (thought.toolCalls && thought.toolCalls.length > 0) {
+                html += `
+                    <div class="card">
+                        <div class="card-header"><strong>MCP Tool Calls (${thought.toolCalls.length})</strong></div>
+                        <div class="card-body">
+                `;
+                
+                thought.toolCalls.forEach((tc, idx) => {
+                    const successBadge = tc.success ? 'bg-success' : 'bg-danger';
+                    const serverBadge = tc.mcpServer ? `<span class="badge bg-secondary ms-2">${tc.mcpServer}</span>` : '';
+                    const duration = tc.durationMs ? `<small class="text-muted">(${tc.durationMs.toFixed(1)}ms)</small>` : '';
+                    
+                    html += `
+                        <div class="mb-3 ${idx > 0 ? 'border-top pt-3' : ''}">
+                            <div class="mb-2">
+                                <span class="badge ${successBadge}">${tc.success ? '✓' : '✗'}</span>
+                                <strong class="ms-2">${escapeHtml(tc.toolName)}</strong>
+                                ${serverBadge}
+                                ${duration}
+                            </div>
+                            ${tc.result ? `<pre class="bg-light p-2 rounded mb-0" style="font-size: 0.9em; max-height: 200px; overflow-y: auto;">${escapeHtml(tc.result)}</pre>` : '<em class="text-muted">No result</em>'}
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('detailModalTitle').textContent = 'Thought Details';
+            document.getElementById('detailModalContent').innerHTML = html;
+            new bootstrap.Modal(document.getElementById('detailModal')).show();
+        }
+        
+        function showActionDetail(actionId) {
+            const action = actions.find(a => a.id === actionId);
+            if (!action) return;
+            
+            let html = `
+                <div class="mb-3">
+                    <strong class="fs-5">${escapeHtml(action.name)}</strong>
+                    <span class="badge bg-${getActionStatusColor(action.status)} ms-2">${action.status}</span>
+                    <br>
+                    <small class="text-muted">${new Date(action.timestamp).toLocaleString()}</small>
+                </div>
+                
+                ${action.description ? `
+                <div class="card mb-3">
+                    <div class="card-header"><strong>Description</strong></div>
+                    <div class="card-body">${escapeHtml(action.description)}</div>
+                </div>` : ''}
+                
+                ${action.input ? `
+                <div class="card mb-3">
+                    <div class="card-header"><strong>Input</strong></div>
+                    <div class="card-body"><pre class="mb-0" style="white-space: pre-wrap;">${escapeHtml(action.input)}</pre></div>
+                </div>` : ''}
+                
+                ${action.output ? `
+                <div class="card mb-3">
+                    <div class="card-header"><strong>Output</strong></div>
+                    <div class="card-body"><pre class="mb-0" style="white-space: pre-wrap;">${escapeHtml(action.output)}</pre></div>
+                </div>` : ''}
+            `;
+            
+            if (action.toolCalls && action.toolCalls.length > 0) {
+                html += `
+                    <div class="card">
+                        <div class="card-header"><strong>MCP Tool Calls (${action.toolCalls.length})</strong></div>
+                        <div class="card-body">
+                `;
+                
+                action.toolCalls.forEach((tc, idx) => {
+                    const successBadge = tc.success ? 'bg-success' : 'bg-danger';
+                    const serverBadge = tc.mcpServer ? `<span class="badge bg-secondary ms-2">${tc.mcpServer}</span>` : '';
+                    const duration = tc.durationMs ? `<small class="text-muted">(${tc.durationMs.toFixed(1)}ms)</small>` : '';
+                    
+                    html += `
+                        <div class="mb-3 ${idx > 0 ? 'border-top pt-3' : ''}">
+                            <div class="mb-2">
+                                <span class="badge ${successBadge}">${tc.success ? '✓' : '✗'}</span>
+                                <strong class="ms-2">${escapeHtml(tc.toolName)}</strong>
+                                ${serverBadge}
+                                ${duration}
+                            </div>
+                            ${tc.result ? `<pre class="bg-light p-2 rounded mb-0" style="font-size: 0.9em; max-height: 200px; overflow-y: auto;">${escapeHtml(tc.result)}</pre>` : '<em class="text-muted">No result</em>'}
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('detailModalTitle').textContent = 'Action Details';
+            document.getElementById('detailModalContent').innerHTML = html;
+            new bootstrap.Modal(document.getElementById('detailModal')).show();
         }
     </script>
 }

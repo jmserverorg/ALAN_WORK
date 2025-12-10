@@ -6,6 +6,9 @@ public class AgentThought
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     public string Content { get; set; } = string.Empty;
     public ThoughtType Type { get; set; }
+
+    // MCP and tool usage tracking (minimal metadata)
+    public List<ToolCall>? ToolCalls { get; set; }
 }
 
 public enum ThoughtType
@@ -15,4 +18,13 @@ public enum ThoughtType
     Reasoning,
     Decision,
     Reflection
+}
+
+public class ToolCall
+{
+    public string ToolName { get; set; } = string.Empty;
+    public string? McpServer { get; set; }
+    public string? Result { get; set; }
+    public bool Success { get; set; } = true;
+    public double? DurationMs { get; set; }
 }

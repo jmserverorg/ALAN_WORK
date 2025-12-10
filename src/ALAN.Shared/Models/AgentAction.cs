@@ -9,6 +9,9 @@ public class AgentAction
     public string Input { get; set; } = string.Empty;
     public string? Output { get; set; }
     public ActionStatus Status { get; set; }
+
+    // MCP and tool usage tracking (minimal metadata)
+    public List<ToolCall>? ToolCalls { get; set; }
 }
 
 public enum ActionStatus
