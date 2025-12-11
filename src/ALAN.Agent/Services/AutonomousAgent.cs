@@ -213,12 +213,13 @@ public class AutonomousAgent
             var allActions = await Task.WhenAll(actionTasks);
             var shortTermActions = allActions
                 .Where(a => a != null)
+                .Select(a => a!)
                 .OrderByDescending(a => a.Timestamp)
                 .Take(10)
                 .ToList();
 
             // Convert recent successful actions to memory entries efficiently
-            if (shortTermActions.Any())
+            if (shortTermActions != null && shortTermActions.Count != 0)
             {
                 var recentActionMemories = shortTermActions
                     .Where(a => a.Status == ActionStatus.Completed)
@@ -231,17 +232,16 @@ public class AutonomousAgent
                         Summary = a.Output ?? a.Description ?? string.Empty,
                         Timestamp = a.Timestamp,
                         Importance = 0.5, // Lower importance for actions (will be consolidated later)
-                        Tags = new List<string> { "short-term", "action", "recent" }
+                        Tags = ["short-term", "action", "recent"]
                     })
                     .ToList();
 
                 // Prepend short-term memories and limit to MAX_MEMORY_CONTEXT_SIZE
-                if (recentActionMemories.Any())
+                if (recentActionMemories.Count != 0)
                 {
-                    _recentMemories = recentActionMemories
+                    _recentMemories = [.. recentActionMemories
                         .Concat(_recentMemories)
-                        .Take(MAX_MEMORY_CONTEXT_SIZE)
-                        .ToList();
+                        .Take(MAX_MEMORY_CONTEXT_SIZE)];
                 }
             }
 
@@ -258,7 +258,7 @@ public class AutonomousAgent
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load recent memories, continuing with empty context");
-            _recentMemories = new List<MemoryEntry>();
+            _recentMemories = [];
         }
     }
 
@@ -323,7 +323,7 @@ Example:
   }}]
 }}
 ";
-        _logger.LogTrace("Agent prompt: {Prompt}", prompt.Length > 500 ? prompt.Substring(0, 500) + "..." : prompt);
+        _logger.LogTrace("Agent prompt: {Prompt}", prompt.Length > 500 ? string.Concat(prompt.AsSpan(0, 500), "...") : prompt);
         try
         {
             var result = await _agent.RunAsync(prompt, _thread, cancellationToken: cancellationToken);
@@ -366,7 +366,7 @@ Example:
                 Content = $"Azure OpenAI API error (Status {clientEx.Status}): {clientEx.Message}",
                 Summary = "API communication error",
                 Importance = 0.6,
-                Tags = new List<string> { "error", "api", "azure-openai" }
+                Tags = ["error", "api", "azure-openai"]
             };
             await _longTermMemory.StoreMemoryAsync(errorMemory, cancellationToken);
         }
@@ -382,7 +382,7 @@ Example:
                 Content = $"Error during thinking: {ex.Message}",
                 Summary = "Agent error",
                 Importance = 0.7,
-                Tags = new List<string> { "error", "system" }
+                Tags = ["error", "system"]
             };
             await _longTermMemory.StoreMemoryAsync(errorMemory, cancellationToken);
         }

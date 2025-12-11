@@ -230,6 +230,70 @@ Configuration constants in `AutonomousAgent.cs`:
 - **Keep methods focused** - Single responsibility, under 30 lines when possible
 - **Use dependency injection** - Register services in `Program.cs`, avoid `new` in classes
 
+#### Modern C# Features (C# 12+)
+
+**Collection Expressions** - Use `[]` syntax for all collection initialization:
+```csharp
+// ✅ Preferred - Modern collection expressions
+string[] vowels = ["a", "e", "i", "o", "u"];
+List<int> numbers = [1, 2, 3, 4, 5];
+IEnumerable<string> names = ["Alice", "Bob", "Charlie"];
+Span<int> span = [1, 2, 3];
+
+// ❌ Avoid - Old syntax
+string[] vowels = new[] { "a", "e", "i", "o", "u" };
+var numbers = new List<int> { 1, 2, 3, 4, 5 };
+```
+
+**Spread Operator** - Use `..` to expand collections inline:
+```csharp
+// ✅ Preferred - Spread operator
+int[] row1 = [1, 2, 3];
+int[] row2 = [4, 5, 6];
+int[] combined = [..row1, ..row2, 7, 8];
+
+// Conditional spreading
+bool includeExtra = true;
+int[] result = [..numbers, ..includeExtra ? [99, 100] : []];
+
+// ❌ Avoid - Manual concatenation
+var combined = row1.Concat(row2).Append(7).Append(8).ToArray();
+```
+
+**Primary Constructors** - Use for dependency injection and simple initialization:
+```csharp
+// ✅ Preferred - Primary constructor
+public class ExampleService(ILogger<ExampleService> logger, IConfiguration config)
+{
+    public void DoWork() => logger.LogInformation("Working with {Config}", config);
+}
+
+// ❌ Avoid - Traditional constructor with field assignment
+public class ExampleService
+{
+    private readonly ILogger<ExampleService> _logger;
+    private readonly IConfiguration _config;
+    
+    public ExampleService(ILogger<ExampleService> logger, IConfiguration config)
+    {
+        _logger = logger;
+        _config = config;
+    }
+}
+```
+
+**Collection Expressions Best Practices**:
+- Use `[]` for empty collections instead of `new List<T>()` or `Array.Empty<T>()`
+- Prefer collection expressions for all collection types (arrays, lists, spans, IEnumerable)
+- Use spread `..` to combine collections efficiently
+- Leverage target-typing - no need to specify type when it's inferred
+
+**When to Use Each Feature**:
+- **Collection expressions**: Any time you initialize a collection with values
+- **Spread operator**: Combining multiple collections, conditional element inclusion
+- **Primary constructors**: Dependency injection, immutable data classes, simple initialization
+- **`required` properties**: Force property initialization without constructor parameters
+
 #### Architecture Patterns
 
 - **Clean separation of concerns** - Agent logic, Web UI, and Shared models are separate projects
