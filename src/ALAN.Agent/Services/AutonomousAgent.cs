@@ -30,7 +30,7 @@ public class AutonomousAgent
     private readonly HumanInputHandler _humanInputHandler;
     private bool _isRunning;
     private bool _isPaused;
-    private string _currentPrompt = "You are an autonomous AI agent. Think about how to improve yourself.";
+    private string _receivedDirective = "Think about how to improve yourself.";
     private int _consecutiveThrottles = 0;
     private int _iterationCount = 0;
     private volatile List<MemoryEntry> _recentMemories = new();
@@ -61,7 +61,7 @@ public class AutonomousAgent
 
     public void UpdatePrompt(string prompt)
     {
-        _currentPrompt = prompt;
+        _receivedDirective = prompt;
         _stateManager.UpdatePrompt(prompt);
         _logger.LogInformation("Prompt updated: {Prompt}", prompt);
     }
@@ -275,23 +275,23 @@ public class AutonomousAgent
         // Store current time to short-term memory
         await _shortTermMemory.SetAsync("last-think-time", DateTime.UtcNow, TimeSpan.FromHours(1), cancellationToken);
 
-        if (_currentDirective != _currentPrompt)
+        if (_currentDirective != _receivedDirective)
         {
-            _logger.LogInformation("New directive received: {Directive}", _currentPrompt);
-            _currentDirective = _currentPrompt;
+            _logger.LogInformation("New directive received: {Directive}", _receivedDirective);
+            _currentDirective = _receivedDirective;
 
             // Record observation
             var observation = new AgentThought
             {
                 Type = ThoughtType.Observation,
-                Content = _currentPrompt
+                Content = _receivedDirective
             };
             _stateManager.AddThought(observation);
             _logger.LogInformation("Agent observed: {Content}", observation.Content);
         }
 
         // Get AI response
-        var prompt = $@"You are an autonomous agent. Your current directive is: {_currentPrompt}
+        var prompt = $@"You are an autonomous agent. Your current directive is: {_receivedDirective}
 
 You have access to the following tools:
 - GitHub MCP Server: Query repositories, read files, search code, view commits
