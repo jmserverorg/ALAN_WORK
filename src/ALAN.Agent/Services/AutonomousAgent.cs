@@ -199,7 +199,7 @@ public class AutonomousAgent
 
             // Also load recent short-term memories and learnings that haven't been consolidated yet
             // These are crucial for current execution context
-            // Get all thought keys from short-term memory
+            // Get all action keys from short-term memory
 
             var shortTermActions = new List<AgentAction>();
             // Get all action keys from short-term memory
