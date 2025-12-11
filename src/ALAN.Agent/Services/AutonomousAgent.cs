@@ -612,7 +612,7 @@ Be specific about which tools you use and what you discover.";
     /// Builds a formatted string containing relevant memory context for the current iteration.
     /// This provides the agent with accumulated knowledge from previous iterations.
     /// </summary>
-    private string BuildMemoryContext()
+    internal string BuildMemoryContext()
     {
         if (!_recentMemories.Any())
         {
@@ -659,6 +659,12 @@ Be specific about which tools you use and what you discover.";
     public void Stop()
     {
         _isRunning = false;
+    }
+
+    // Internal method for testing purposes
+    internal void SetRecentMemoriesForTesting(List<MemoryEntry> memories)
+    {
+        _recentMemories = memories;
     }
 }
 
