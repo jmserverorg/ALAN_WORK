@@ -33,7 +33,7 @@ public class AutonomousAgent
     private string _currentPrompt = "You are an autonomous AI agent. Think about how to improve yourself.";
     private int _consecutiveThrottles = 0;
     private int _iterationCount = 0;
-    private List<MemoryEntry> _recentMemories = new();
+    private volatile List<MemoryEntry> _recentMemories = new();
     private DateTime _lastMemoryLoad = DateTime.MinValue;
     private string _currentDirective = "";
 
