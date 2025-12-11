@@ -207,21 +207,14 @@ public class AutonomousAgent
 
             // Load recent short-term actions in parallel (limit to 10 most recent)
             var actionKeys = actionKeysTask.Result;
-            var shortTermActions = new List<AgentAction>(10);
-            var actionsLock = new object();
-            var actionTasks = actionKeys.Take(10).Select(async key =>
-            {
-                var action = await _shortTermMemory.GetAsync<AgentAction>(key, cancellationToken);
-                if (action != null)
-                {
-                    lock (actionsLock)
-                    {
-                        shortTermActions.Add(action);
-                    }
-                }
-            });
-            
-            await Task.WhenAll(actionTasks);
+            // Fetch all actions for the keys, then sort by Timestamp descending and take the 10 most recent
+            var actionTasks = actionKeys.Select(key => _shortTermMemory.GetAsync<AgentAction>(key, cancellationToken));
+            var allActions = await Task.WhenAll(actionTasks);
+            var shortTermActions = allActions
+                .Where(a => a != null)
+                .OrderByDescending(a => a.Timestamp)
+                .Take(10)
+                .ToList();
 
             // Convert recent successful actions to memory entries efficiently
             if (shortTermActions.Any())
