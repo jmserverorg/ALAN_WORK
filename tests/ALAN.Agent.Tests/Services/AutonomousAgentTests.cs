@@ -577,7 +577,7 @@ public class AutonomousAgentTests
         Assert.Equal(4, loadedMemories.Count);
         // Recent high importance should be first (0.9 * 0.7 + 1.0 * 0.3 = 0.93)
         Assert.Equal("Recent High", loadedMemories[0].Summary);
-        // Old high importance should be second (0.9 * 0.7 = 0.63, old so no recency)
+        // Old high importance should be second (0.9 * 0.7 + ~0 * 0.3 ≈ 0.63, old so minimal recency)
         Assert.Equal("Old High", loadedMemories[1].Summary);
     }
 
