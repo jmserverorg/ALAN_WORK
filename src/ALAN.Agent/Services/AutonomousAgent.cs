@@ -172,7 +172,7 @@ public class AutonomousAgent
     /// Loads recent memories and learnings from long-term storage to provide context for decision-making.
     /// This ensures the agent builds on previous knowledge rather than starting from scratch each iteration.
     /// </summary>
-    private async Task LoadRecentMemoriesAsync(CancellationToken cancellationToken)
+    internal async Task LoadRecentMemoriesAsync(CancellationToken cancellationToken)
     {
         try
         {
@@ -662,10 +662,15 @@ Be specific about which tools you use and what you discover.";
         _isRunning = false;
     }
 
-    // Internal method for testing purposes
+    // Internal methods for testing purposes
     internal void SetRecentMemoriesForTesting(List<MemoryEntry> memories)
     {
         _recentMemories = memories;
+    }
+
+    internal List<MemoryEntry> GetRecentMemoriesForTesting()
+    {
+        return _recentMemories;
     }
 }
 
