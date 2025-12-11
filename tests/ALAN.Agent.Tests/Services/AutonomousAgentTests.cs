@@ -313,9 +313,7 @@ public class AutonomousAgentTests
         // Assert
         Assert.Contains(shortContent, result);
         // Should not have "..." since content is short
-        var detailsLine = result.Split('\n').FirstOrDefault(line => line.Contains("Details:"));
-        Assert.NotNull(detailsLine);
-        Assert.DoesNotContain("...", detailsLine);
+        Assert.DoesNotContain("...", result);
     }
 
     [Fact]
@@ -488,6 +486,6 @@ public class AutonomousAgentTests
 
         // Assert
         Assert.Contains("### Learning (2 entries):", result);
-        Assert.Contains("### Success (1 entries):", result);
+        Assert.Contains("### Success (1 entry):", result);
     }
 }

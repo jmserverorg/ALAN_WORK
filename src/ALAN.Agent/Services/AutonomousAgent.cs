@@ -633,7 +633,8 @@ Be specific about which tools you use and what you discover.";
 
         foreach (var group in groupedMemories)
         {
-            context.AppendLine($"\n### {group.Key} ({group.Count()} entries):");
+            var entryWord = group.Count() == 1 ? "entry" : "entries";
+            context.AppendLine($"\n### {group.Key} ({group.Count()} {entryWord}):");
 
             foreach (var memory in group.OrderByDescending(m => m.Importance).Take(5))
             {
