@@ -51,7 +51,15 @@ cd src/ALAN.Web
 dotnet run
 ```
 
+**Terminal 3 - ChatApi (Optional - for AG-UI support):**
+```bash
+cd src/ALAN.ChatApi
+dotnet run
+```
+
 Then open your browser to: `https://localhost:5001` (or the URL shown in terminal)
+
+> **Note**: The ChatApi service is optional and provides AG-UI protocol support for standardized agent communication. If you run it, the Chat page will use the AG-UI interface instead of the WebSocket-based chat.
 
 ## What You'll See
 
