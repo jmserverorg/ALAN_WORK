@@ -9,21 +9,21 @@
     <div class="row">
         <div class="col-12 text-center mb-4">
             <h1 class="display-4">Chat with ALAN</h1>
-            <p class="lead">Interact with the LLM via AG-UI protocol</p>
+            <p class="lead">Interact with the LLM via CopilotKit AG-UI interface</p>
         </div>
     </div>
 
     <div class="row">
-        <!-- Chat with Agent Panel - Now using AG-UI React Component -->
+        <!-- Chat with Agent Panel - Now using CopilotKit -->
         <div class="col-md-7 mb-4">
             <div class="card h-100">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">💬 Chat with Agent (AG-UI)</h5>
-                    <small>Standard AG-UI protocol interface with vanilla JavaScript</small>
+                    <h5 class="mb-0">💬 Chat with Agent (CopilotKit)</h5>
+                    <small>Powered by CopilotKit with AG-UI protocol</small>
                 </div>
                 <div class="card-body d-flex flex-column" style="height: 600px;">
-                    <!-- React AG-UI Chat Component will mount here -->
-                    <div id="chat-root" data-chatapi-url="@Model.ChatApiBaseUrl"></div>
+                    <!-- CopilotKit Chat Component will mount here -->
+                    <div id="copilot-chat-root" data-chatapi-url="@Model.ChatApiBaseUrl"></div>
                 </div>
             </div>
         </div>
@@ -72,11 +72,15 @@
 </div>
 
 @section Scripts {
-    <!-- AG-UI Chat Component -->
-    <script src="~/js/agui-chat.js"></script>
+    <!-- React and ReactDOM from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- CopilotKit Chat Component Bundle -->
+    <script src="~/dist/copilot-chat.bundle.js"></script>
     
     <script>
-        // Steering commands functionality (unchanged)
+        // Steering commands functionality
         function showCommandStatus(message, type = 'info') {
             const commandStatus = document.getElementById('command-status');
             const alertClass = {
