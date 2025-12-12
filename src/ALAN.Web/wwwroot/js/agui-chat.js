@@ -160,8 +160,7 @@ class AGUIChatApp {
     }
 
     async callAGUIEndpoint(message) {
-        // AG-UI protocol expects POST requests with specific structure
-        // Microsoft's implementation uses the AIAgent directly via MapAGUI
+        // AG-UI protocol returns Server-Sent Events (SSE) with JSON events
         const endpoint = `${this.chatApiBaseUrl}/agui`;
         
         try {
@@ -182,10 +181,52 @@ class AGUIChatApp {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
-            // For now, read the full response
-            // In a production setup, this would use SSE to stream responses
-            const data = await response.text();
-            return data || 'Agent responded successfully';
+            // Parse SSE stream to extract text content
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
+            let accumulatedText = '';
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                
+                // Split into events (each event ends with \n\n)
+                const events = buffer.split('\n\n');
+                buffer = events.pop() || ''; // Keep incomplete event in buffer
+
+                for (const eventText of events) {
+                    if (!eventText.trim()) continue;
+
+                    // Parse SSE event lines
+                    const lines = eventText.split('\n');
+                    let data = '';
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data:')) {
+                            data = line.slice(5).trim();
+                        }
+                    }
+
+                    if (!data || data === '[DONE]') continue;
+
+                    try {
+                        const event = JSON.parse(data);
+                        
+                        // Extract text from TEXT_MESSAGE_CONTENT events
+                        if (event.type === 'TEXT_MESSAGE_CONTENT' && event.delta) {
+                            accumulatedText += event.delta;
+                        }
+                    } catch (e) {
+                        // Skip malformed JSON
+                        console.debug('Skipping non-JSON event data:', data);
+                    }
+                }
+            }
+
+            return accumulatedText || 'Agent responded (no text content)';
         } catch (error) {
             console.error('Error calling AG-UI endpoint:', error);
             throw error;

@@ -43,6 +43,8 @@ The Chat page uses a vanilla JavaScript client that communicates with the AG-UI 
 
 The `agui-chat.js` file implements:
 - Message sending/receiving via AG-UI protocol
+- **Server-Sent Events (SSE) parsing**: Properly extracts text from `TEXT_MESSAGE_CONTENT` events
+- **Streaming response handling**: Reads the SSE stream and accumulates text deltas
 - Session management with unique thread IDs
 - Real-time UI updates
 - Error handling and fallback
