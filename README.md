@@ -149,7 +149,7 @@ Then open your browser to `http://localhost:8080`
 1. Build Docker images:
    ```bash
    docker build -f Dockerfile.web -t alan-web .
-   docker build -f Dockerfile.agent -t alan-agent .
+   docker build -f Dockerfile.agent -t alanagent .
    ```
 
 2. Push images to Azure Container Registry or Docker Hub

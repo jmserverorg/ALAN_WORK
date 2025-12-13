@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  alan-agent:
+  alanagent:
     build:
       context: .
       dockerfile: Dockerfile.agent
@@ -18,4 +18,4 @@ services:
       - "8080:80"
     restart: unless-stopped
     depends_on:
-      - alan-agent
+      - alanagent

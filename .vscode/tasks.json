@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "npm-install",
+      "label": "npm-install-web",
       "type": "shell",
       "command": "npm",
       "args": [
@@ -10,10 +10,26 @@
       ],
       "options": {
         "cwd": "${workspaceFolder}/src/ALAN.Web"
-      }
+      },
+      "problemMatcher": []
     },
     {
-      "label": "build-node",
+      "label": "build-web-frontend",
+      "type": "shell",
+      "command": "npm",
+      "args": [
+        "run",
+        "build"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/src/ALAN.Web"
+      },
+      "dependsOn": "npm-install-web",
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "dev-web-frontend",
       "type": "shell",
       "command": "npm",
       "args": [
@@ -24,25 +40,25 @@
       "options": {
         "cwd": "${workspaceFolder}/src/ALAN.Web"
       },
-      "dependsOn": "npm-install",
+      "dependsOn": "npm-install-web",
       "problemMatcher": {
-        "owner": "webpack",
-        "fileLocation": "absolute",
+        "owner": "vite",
         "background": {
-          "beginsPattern": "^> webpack --mode .* --watch",
-          "endsPattern": "^webpack .* compiled (successfully|with warnings)"
+          "activeOnStart": true,
+          "beginsPattern": "VITE v",
+          "endsPattern": "Local:.*http"
         },
         "pattern": {
-          "regexp": "^ERROR in\\s+([^ ]+)\\s+(\\d+:\\d+)",
+          "regexp": "^([^\\s].*):(\\d+):(\\d+)\\s+-\\s+(error|warning|info)\\s+(.*)$",
           "file": 1,
-          "location": 2,
-          "message": 0,
-          "severity": 2
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
         }
       },
       "group": "build"
     },
-    
     {
       "label": "build-solution",
       "command": "dotnet",
@@ -58,18 +74,18 @@
     },
     {
       "label": "build-all",
-      "dependsOn": ["build-node", "build-solution"],
+      "dependsOn": ["build-web-frontend", "build-solution"],
       "dependsOrder": "parallel",
-      "problemMatcher": "$msCompile",
+      "problemMatcher": [],
       "group": {
-      "kind": "build",
-      "isDefault": true
+        "kind": "build",
+        "isDefault": true
       }
     },
     {
       "label": "stop-frontend-watch",
       "type": "shell",
-      "command": "pkill -f \"webpack --mode development --watch\"",
+      "command": "pkill -f \"vite\"",
       "problemMatcher": []
     }
   ]

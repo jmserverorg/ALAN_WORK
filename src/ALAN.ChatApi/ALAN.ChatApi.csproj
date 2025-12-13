@@ -12,6 +12,7 @@
     <PackageReference Include="Handlebars.Net" Version="2.1.6" />
     <PackageReference Include="Microsoft.Agents.AI.Hosting.AGUI.AspNetCore" Version="1.0.0-preview.251204.1" />
     <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.0.0-preview.251204.1" />
+    <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.1.0-preview.1.25608.1" />
   </ItemGroup>
 
   <ItemGroup>

@@ -14,15 +14,26 @@ ALAN (Autonomous Learning Agent Network) is a Semantic Kernel-based autonomous a
    - Implements cost control through `UsageTracker`
    - Core logic in `AutonomousAgent.cs`
 
-2. **ALAN.Web** (UI)
+2. **ALAN.ChatApi** (Backend API)
 
-   - ASP.NET Core web application with SignalR
-   - Reads execution data from storage and displays in real-time
-   - Provides observability into agent thoughts, actions, and status
+   - ASP.NET Core web API with REST endpoints
+   - Provides all server-side logic for the web interface
+   - Background service (`AgentStateService`) polls storage for agent state
+   - Exposes AG-UI/CopilotKit endpoint at `/copilotkit`
+   - REST API controllers for state, human input, and code proposals
    - Entry point: `Program.cs`
 
-3. **ALAN.Shared**
-   - Shared models between agent and web interface
+3. **ALAN.Web** (React Frontend)
+
+   - Pure React application with TypeScript
+   - Built with Vite for fast development and building
+   - Real-time polling of agent state from ALAN.ChatApi
+   - CopilotKit integration for AI chat assistance
+   - No C# code - all server logic is in ALAN.ChatApi
+   - Entry point: `src/main.tsx`
+
+4. **ALAN.Shared**
+   - Shared models between agent and API
    - Contains `AgentState.cs`, `AgentThought.cs`, `AgentAction.cs`
 
 ## Running and Debugging
@@ -30,7 +41,7 @@ ALAN (Autonomous Learning Agent Network) is a Semantic Kernel-based autonomous a
 ### Prerequisites
 
 - .NET 8.0 SDK
-- Node.js (LTS recommended) for ALAN.Web frontend assets
+- Node.js 18+ and npm for ALAN.Web React frontend
 - Azure OpenAI endpoint (typically uses managed identity)
 - VS Code with Azurite extension installed
 - Environment variables from `.env` file
@@ -50,18 +61,10 @@ The solution uses VS Code's multi-target debugging. Configuration files:
    - If not working, ask user to start the Azurite extension (not restart VS Code)
    - DO NOT troubleshoot Azurite itself - only verify port 10000 status
 
-2. **Restore client-side libraries (first time only)**
-   ```bash
-   cd src/ALAN.Web
-   dotnet tool install -g Microsoft.Web.LibraryManager.Cli
-   libman restore
-   ```
-
-   **Build Node-based frontend assets** (CopilotKit/AG-UI):
+2. **Install React frontend dependencies (first time only)**
    ```bash
    cd src/ALAN.Web
    npm install
-   npm run build
    ```
 
 3. **Set environment variables**
@@ -69,19 +72,14 @@ The solution uses VS Code's multi-target debugging. Configuration files:
    - Copy values from `.env` to your environment
    - Required: `AZURE_OPENAI_ENDPOINT`, managed identity credentials
    - Required: `AZURE_STORAGE_CONNECTION_STRING` for Azure Blob Storage (Azurite locally)
-      - Local storage uses Azurite with the default development storage connection string `DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:10001/devstoreaccount1;TableEndpoint=http://127.0.0.1:10002/devstoreaccount1;`
+      - Local storage uses Azurite with the default development storage connection string
 
-4. **Ensure Azurite is running**
-
-   - Verify port 10000 is open (DO NOT restart it)
-   - If not, ask user to start Azurite extension or
-   - If running in a headless environment, ensure Azurite is installed (`npm install -g azurite`) and started manually.
-
-5. **Launch both services**
-   - Use the "ALAN (Agent + Web)" compound launch configuration
+4. **Launch all services**
+   - Use the "Launch Agent + ChatApi + Web" compound launch configuration
    - Or run individually:
-     - "Launch Agent" - Starts `ALAN.Agent/Program.cs`
-     - "Launch Web" - Starts `ALAN.Web/Program.cs`
+     - "C#: Launch ALAN.Agent" - Starts `ALAN.Agent/Program.cs`
+     - "C#: Launch ALAN.ChatApi" - Starts `ALAN.ChatApi/Program.cs`
+     - "Launch ALAN.Web (React)" - Starts Vite dev server and Chrome debugger
 
 ### Common Debugging Scenarios
 
@@ -97,17 +95,24 @@ The solution uses VS Code's multi-target debugging. Configuration files:
 - Check connection string in environment variables
 - Review blob storage files in `__blobstorage__` directory
 
-**Web UI Not Updating:**
+**React UI Not Updating:**
 
-- Check SignalR connection in browser console
-- Verify `AgentHub` is receiving events
-- Review `AgentStateService` polling logic
+- Check API connection in browser console (should poll `/api/state` every second)
+- Verify ALAN.ChatApi is running on port 5001
+- Review `AgentStateService` polling logic in ChatApi
+- Check Vite proxy configuration in `vite.config.ts`
 
 **Azure OpenAI Connection:**
 
 - Ensure managed identity has access to Azure OpenAI
 - Verify endpoint configuration in `Program.cs`
 - Check deployment name matches configuration
+
+**CopilotKit Not Working:**
+
+- Verify `/copilotkit` endpoint is accessible on ChatApi
+- Check WebSocket connection in browser dev tools
+- Ensure Azure OpenAI is properly configured
 
 ## Development Tools
 
@@ -165,14 +170,14 @@ Configuration constants in `AutonomousAgent.cs`:
 - `RECENCY_WEIGHT = 0.3` - Weight for recency in memory scoring
 - `HIGH_IMPORTANCE_THRESHOLD = 0.8` - Threshold for including full content
 
-### Web Update Flow
+### Web Update Flow (React App)
 
-1. `AgentStateService` polls **short-term memory** every 500ms
+1. `AgentStateService` (in ChatApi) polls **short-term memory** every 500ms
 2. Retrieves current state from `agent:current-state` key
 3. Retrieves thoughts from `thought:*` keys
 4. Retrieves actions from `action:*` keys
-5. `AgentHub` broadcasts via SignalR
-6. `Index.cshtml` updates UI in real-time
+5. React app polls `/api/state` endpoint every 1 second
+6. Updates UI components with new data
 
 ## Troubleshooting Guide
 
@@ -185,6 +190,7 @@ Configuration constants in `AutonomousAgent.cs`:
 **No thoughts/actions appearing:**
 → Check `StateManager.AddThought()` and short-term memory storage
 → Verify `AgentStateService` is reading from short-term memory correctly
+→ Check React app is successfully polling `/api/state`
 
 **Agent has no memory of previous iterations:**
 → Check `LoadRecentMemoriesAsync()` is being called at startup
@@ -192,8 +198,10 @@ Configuration constants in `AutonomousAgent.cs`:
 → Review memory refresh logic (every 10 iterations or hourly)
 → Check that `BuildMemoryContext()` is formatting memories correctly
 
-**SignalR connection failed:**
-→ Falls back to polling mode automatically (see `Index.cshtml`)
+**React app connection errors:**
+→ Verify ALAN.ChatApi is running on port 5001
+→ Check `VITE_API_URL` in `.env` file
+→ Review CORS configuration in ChatApi
 
 **Azure OpenAI authentication errors:**
 → Verify managed identity and endpoint configuration
@@ -401,10 +409,13 @@ For detailed test documentation, see `TEST_SUITE_SUMMARY.md`.
 - **Storage**: Azurite on port 10000 (local), Azure Blob Storage (production)
 - **Short-term Memory TTL**: 8 hours for thoughts/actions, 1 hour for agent state
 - **Memory Consolidation**: Runs every 6 hours to promote important items to long-term storage
-- **UI Updates**: SignalR with polling fallback every 5 seconds
+- **UI Updates**: React app polls `/api/state` every 1 second
+- **React Dev Server**: Port 5269 (Vite)
+- **ChatApi**: Port 5001
 - **Test Framework**: xUnit 2.9.3 with Moq 4.20.72
 
 For detailed setup instructions, see `QUICKSTART.md`.
+For React migration details, see `docs/REACT_MIGRATION.md`.
 
 ## Final remarks
 

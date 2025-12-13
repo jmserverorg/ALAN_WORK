@@ -1,69 +1,62 @@
-# ALAN.Web Frontend Build
+# ALAN.Web - React Frontend
 
-This directory contains the React + TypeScript frontend using CopilotKit for the chat interface.
+A modern React application for observing and interacting with the ALAN autonomous agent.
 
 ## Prerequisites
 
-- Node.js 20+ and npm
-- TypeScript
-- .NET 8.0 SDK
+- Node.js 18+ and npm
+- ALAN.ChatApi running (provides the backend API)
 
-## Building the Frontend
+## Setup
 
-The frontend must be built **before** running the ASP.NET Core application:
-
+1. Install dependencies:
 ```bash
-# From the ALAN.Web directory
-cd src/ALAN.Web
-
-# Install dependencies (first time only, or when package.json changes)
 npm install
+```
 
-# Build the frontend bundle
+2. Create environment file:
+```bash
+cp .env.example .env
+```
+
+3. Update `.env` with your API URL if different from default:
+```
+VITE_API_URL=http://localhost:5001
+```
+
+## Development
+
+Start the development server:
+```bash
+npm run dev
+```
+
+The app will be available at http://localhost:5269
+
+## Features
+
+- **Real-time Agent Observability**: View agent status, current goals, and prompts
+- **Thoughts & Actions**: See the agent's recent thoughts and actions in real-time
+- **Human Steering**: Send guidance, pause/resume the agent
+- **CopilotKit Integration**: Built-in AI assistant that can answer questions about the agent's state
+
+## Build
+
+Build for production:
+```bash
 npm run build
 ```
 
-This will create the compiled JavaScript bundle in `wwwroot/dist/copilot-chat.bundle.js`.
+The built files will be in the `dist/` directory.
 
-## Development Workflow
+## Architecture
 
-For active development with auto-rebuild:
+This is a pure React application built with:
+- **React 18** with TypeScript
+- **Vite** for fast development and building
+- **CopilotKit** for AI assistant integration
+- **React Router** for navigation
 
-```bash
-# Terminal 1 - Watch mode for frontend (rebuilds on file changes)
-cd src/ALAN.Web
-npm run dev
-
-# Terminal 2 - Run the ASP.NET Core application
-cd src/ALAN.Web
-dotnet run
-```
-
-## Project Structure
-
-```
-ALAN.Web/
-├── ClientApp/                  # TypeScript/React source code
-│   ├── components/
-│   │   └── AlanCopilotChat.tsx  # Main CopilotKit chat component
-│   └── index.tsx                # Entry point
-├── package.json                 # npm dependencies
-├── tsconfig.json                # TypeScript configuration
-├── webpack.config.js            # Webpack build configuration
-└── wwwroot/
-    └── dist/                    # Compiled output (gitignored)
-        └── copilot-chat.bundle.js
-```
-
-## Technologies Used
-
-- **CopilotKit**: AG-UI compatible chat UI framework
-- **React 18**: UI framework
-- **TypeScript**: Type-safe JavaScript
-- **Webpack**: Module bundler
-
-## Notes
-
-- The `node_modules/` and `wwwroot/dist/` directories are gitignored
-- You must run `npm install` and `npm run build` after cloning the repository
-- The bundle size is large (~2MB) due to CopilotKit dependencies - this is normal
+All server-side logic has been moved to ALAN.ChatApi. This app communicates with the backend via:
+- REST API for state polling and commands
+- WebSocket (via CopilotKit) for AI chat functionality
