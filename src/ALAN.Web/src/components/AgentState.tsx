@@ -1,3 +1,5 @@
+'use client';
+
 import './AgentState.css';
 
 interface AgentStateProps {

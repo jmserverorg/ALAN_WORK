@@ -1,3 +1,5 @@
+'use client';
+
 import { useCopilotReadable } from '@copilotkit/react-core';
 import './ThoughtsList.css';
 

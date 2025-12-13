@@ -23,14 +23,14 @@ ALAN (Autonomous Learning Agent Network) is a Semantic Kernel-based autonomous a
    - REST API controllers for state, human input, and code proposals
    - Entry point: `Program.cs`
 
-3. **ALAN.Web** (React Frontend)
+3. **ALAN.Web** (Next.js Frontend)
 
-   - Pure React application with TypeScript
-   - Built with Vite for fast development and building
+   - Next.js application with TypeScript using App Router
+   - Built with Next.js for fast development and production builds
    - Real-time polling of agent state from ALAN.ChatApi
    - CopilotKit integration for AI chat assistance
    - No C# code - all server logic is in ALAN.ChatApi
-   - Entry point: `src/main.tsx`
+   - Entry point: `src/app/page.tsx`
 
 4. **ALAN.Shared**
    - Shared models between agent and API
@@ -41,7 +41,7 @@ ALAN (Autonomous Learning Agent Network) is a Semantic Kernel-based autonomous a
 ### Prerequisites
 
 - .NET 8.0 SDK
-- Node.js 18+ and npm for ALAN.Web React frontend
+- Node.js 18+ and npm for ALAN.Web Next.js frontend
 - Azure OpenAI endpoint (typically uses managed identity)
 - VS Code with Azurite extension installed
 - Environment variables from `.env` file
@@ -61,7 +61,7 @@ The solution uses VS Code's multi-target debugging. Configuration files:
    - If not working, ask user to start the Azurite extension (not restart VS Code)
    - DO NOT troubleshoot Azurite itself - only verify port 10000 status
 
-2. **Install React frontend dependencies (first time only)**
+2. **Install Next.js frontend dependencies (first time only)**
    ```bash
    cd src/ALAN.Web
    npm install
@@ -79,7 +79,7 @@ The solution uses VS Code's multi-target debugging. Configuration files:
    - Or run individually:
      - "C#: Launch ALAN.Agent" - Starts `ALAN.Agent/Program.cs`
      - "C#: Launch ALAN.ChatApi" - Starts `ALAN.ChatApi/Program.cs`
-     - "Launch ALAN.Web (React)" - Starts Vite dev server and Chrome debugger
+     - "Launch ALAN.Web (Next.js)" - Starts Next.js dev server and Chrome debugger
 
 ### Common Debugging Scenarios
 
@@ -95,12 +95,12 @@ The solution uses VS Code's multi-target debugging. Configuration files:
 - Check connection string in environment variables
 - Review blob storage files in `__blobstorage__` directory
 
-**React UI Not Updating:**
+**Next.js UI Not Updating:**
 
 - Check API connection in browser console (should poll `/api/state` every second)
 - Verify ALAN.ChatApi is running on port 5001
 - Review `AgentStateService` polling logic in ChatApi
-- Check Vite proxy configuration in `vite.config.ts`
+- Check Next.js rewrites configuration in `next.config.ts`
 
 **Azure OpenAI Connection:**
 

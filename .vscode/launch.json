@@ -23,20 +23,25 @@
       "internalConsoleOptions": "openOnFirstSessionStart"
     },
     {
-      "name": "Launch ALAN.Web (React)",
-      "type": "chrome",
+      "name": "Launch ALAN.Web (Next.js)",
+      "type": "node",
       "request": "launch",
-      "url": "http://localhost:5269",
-      "webRoot": "${workspaceFolder}/src/ALAN.Web",
-      "preLaunchTask": "dev-web-frontend",
-      "postDebugTask": "stop-frontend-watch"
-      
+      "cwd": "${workspaceFolder}/src/ALAN.Web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "serverReadyAction": {
+        "pattern": "Local:.+(https?://\\S+)",
+        "uriFormat": "%s",
+        "action": "debugWithChrome"
+      },
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
     }
   ],
   "compounds": [
     {
       "name": "Launch Agent + ChatApi + Web",
-      "configurations": ["C#: Launch ALAN.Agent", "C#: Launch ALAN.ChatApi", "Launch ALAN.Web (React)"],
+      "configurations": ["C#: Launch ALAN.Agent", "C#: Launch ALAN.ChatApi", "Launch ALAN.Web (Next.js)"],
       "stopAll": true,
       "preLaunchTask": "build-solution"
     }

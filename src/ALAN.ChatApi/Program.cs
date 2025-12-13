@@ -29,7 +29,7 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
-// builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddEndpointsApiExplorer();
 // Register PromptService
 builder.Services.AddSingleton<IPromptService, PromptService>();
 
@@ -131,9 +131,6 @@ builder.Services.AddSingleton<AIAgent>(sp =>
                               name: agentName);
     return agent;
 });
-
-// Register ChatService
-// builder.Services.AddSingleton<ChatService>();
 
 var app = builder.Build();
 app.UseHttpLogging();

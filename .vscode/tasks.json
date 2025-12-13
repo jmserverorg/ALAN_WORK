@@ -41,22 +41,7 @@
         "cwd": "${workspaceFolder}/src/ALAN.Web"
       },
       "dependsOn": "npm-install-web",
-      "problemMatcher": {
-        "owner": "vite",
-        "background": {
-          "activeOnStart": true,
-          "beginsPattern": "VITE v",
-          "endsPattern": "Local:.*http"
-        },
-        "pattern": {
-          "regexp": "^([^\\s].*):(\\d+):(\\d+)\\s+-\\s+(error|warning|info)\\s+(.*)$",
-          "file": 1,
-          "line": 2,
-          "column": 3,
-          "severity": 4,
-          "message": 5
-        }
-      },
+      "problemMatcher": [],
       "group": "build"
     },
     {
@@ -85,7 +70,7 @@
     {
       "label": "stop-frontend-watch",
       "type": "shell",
-      "command": "pkill -f \"vite\"",
+      "command": "pkill -f \"next-server\"",
       "problemMatcher": []
     }
   ]

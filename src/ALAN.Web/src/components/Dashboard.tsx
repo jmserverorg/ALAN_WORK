@@ -1,9 +1,11 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { useCopilotReadable } from '@copilotkit/react-core';
-import AgentState from './AgentState.tsx';
-import ThoughtsList from './ThoughtsList.tsx';
-import ActionsList from './ActionsList.tsx';
-import HumanInputPanel from './HumanInputPanel.tsx';
+import AgentState from './AgentState';
+import ThoughtsList from './ThoughtsList';
+import ActionsList from './ActionsList';
+import HumanInputPanel from './HumanInputPanel';
 import './Dashboard.css';
 
 interface AgentStateData {
@@ -35,7 +37,7 @@ function Dashboard() {
   const [error, setError] = useState<string | null>(null);
 
   // Get the API URL from environment or use default
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5041';
 
   // Make the agent state readable by CopilotKit
   useCopilotReadable({
