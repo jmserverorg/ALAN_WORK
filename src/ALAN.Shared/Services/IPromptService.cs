@@ -1,4 +1,4 @@
-namespace ALAN.ChatApi.Services;
+namespace ALAN.Shared.Services;
 
 /// <summary>
 /// Interface for prompt template loading and rendering service.

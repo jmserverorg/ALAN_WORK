@@ -11,8 +11,8 @@ export default function Home() {
     <main>
       <div className="app-container">
         <CopilotSidebar
-          defaultOpen={true}
-          clickOutsideToClose={false}
+          defaultOpen={false}          
+          clickOutsideToClose={true}
           labels={{
             title: "ALAN Assistant",
             initial: "Ask me anything about the agent's state, thoughts, or actions.",

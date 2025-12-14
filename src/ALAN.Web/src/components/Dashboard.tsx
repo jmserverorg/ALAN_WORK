@@ -37,7 +37,6 @@ function Dashboard() {
   const [error, setError] = useState<string | null>(null);
 
   // Get the API URL from environment or use default
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5041';
 
   // Make the agent state readable by CopilotKit
   useCopilotReadable({
@@ -49,7 +48,7 @@ function Dashboard() {
     // Poll for state updates
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`${apiUrl}/api/state`);
+        const response = await fetch(`/api/state`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -63,7 +62,7 @@ function Dashboard() {
     }, 1000); // Poll every second
 
     return () => clearInterval(pollInterval);
-  }, [apiUrl]);
+  }, []);
 
   if (error) {
     return (
@@ -72,7 +71,7 @@ function Dashboard() {
         <div className="error-message">
           <h2>Connection Error</h2>
           <p>{error}</p>
-          <p>Make sure ALAN.ChatApi is running on {apiUrl}</p>
+          <p>Make sure ALAN.ChatApi is running</p>
         </div>
       </div>
     );
@@ -97,7 +96,7 @@ function Dashboard() {
       <div className="dashboard-grid">
         <div className="main-panel">
           <AgentState state={state} />
-          <HumanInputPanel apiUrl={apiUrl} />
+          <HumanInputPanel />
         </div>
 
         <div className="side-panel">

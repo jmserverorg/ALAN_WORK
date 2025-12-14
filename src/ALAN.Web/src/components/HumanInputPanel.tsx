@@ -3,11 +3,8 @@
 import { useState } from 'react';
 import './HumanInputPanel.css';
 
-interface HumanInputPanelProps {
-  apiUrl: string;
-}
 
-function HumanInputPanel({ apiUrl }: HumanInputPanelProps) {
+function HumanInputPanel() {
   const [input, setInput] = useState('');
   const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
@@ -16,7 +13,7 @@ function HumanInputPanel({ apiUrl }: HumanInputPanelProps) {
     if (!input.trim()) return;
 
     try {
-      const response = await fetch(`${apiUrl}/api/input`, {
+      const response = await fetch(`/api/input`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -45,7 +42,7 @@ function HumanInputPanel({ apiUrl }: HumanInputPanelProps) {
 
   const handlePause = async () => {
     try {
-      const response = await fetch(`${apiUrl}/api/pause`, {
+      const response = await fetch(`/api/pause`, {
         method: 'POST',
       });
 
@@ -65,7 +62,7 @@ function HumanInputPanel({ apiUrl }: HumanInputPanelProps) {
 
   const handleResume = async () => {
     try {
-      const response = await fetch(`${apiUrl}/api/resume`, {
+      const response = await fetch(`/api/resume`, {
         method: 'POST',
       });
 

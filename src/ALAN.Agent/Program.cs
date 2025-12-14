@@ -1,5 +1,6 @@
 using ALAN.Agent.Services;
 using ALAN.Agent.Services.MCP;
+using ALAN.Shared.Services;
 using ALAN.Shared.Services.Memory;
 using ALAN.Shared.Services.Queue;
 using ALAN.Shared.Models;

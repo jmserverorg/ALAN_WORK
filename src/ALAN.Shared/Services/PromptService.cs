@@ -1,32 +1,30 @@
 using HandlebarsDotNet;
 using Microsoft.Extensions.Logging;
 
-namespace ALAN.Agent.Services;
+namespace ALAN.Shared.Services;
 
 /// <summary>
 /// Service for loading and rendering Handlebars prompt templates.
 /// Provides centralized prompt management with template-based rendering.
 /// </summary>
-public class PromptService : IPromptService
+public class PromptService(ILogger<PromptService> logger, string? promptsDirectory = null) : IPromptService
 {
-    private readonly ILogger<PromptService> _logger;
-    private readonly string _promptsDirectory;
+    private readonly string _promptsDirectory = InitializeDirectory(logger, promptsDirectory);
     private readonly Dictionary<string, HandlebarsTemplate<object, object>> _compiledTemplates = [];
-    private readonly IHandlebars _handlebars;
+    private readonly IHandlebars _handlebars = Handlebars.Create();
 
-    public PromptService(ILogger<PromptService> logger, string? promptsDirectory = null)
+    private static string InitializeDirectory(ILogger<PromptService> logger, string? promptsDirectory)
     {
-        _logger = logger;
-        _promptsDirectory = promptsDirectory ?? Path.Combine(AppContext.BaseDirectory, "Prompts");
-        _handlebars = Handlebars.Create();
-
-        if (!Directory.Exists(_promptsDirectory))
+        var directory = promptsDirectory ?? Path.Combine(AppContext.BaseDirectory, "Prompts");
+        
+        if (!Directory.Exists(directory))
         {
-            _logger.LogWarning("Prompts directory not found: {Directory}", _promptsDirectory);
-            Directory.CreateDirectory(_promptsDirectory);
+            logger.LogWarning("Prompts directory not found: {Directory}", directory);
+            Directory.CreateDirectory(directory);
         }
 
-        _logger.LogInformation("Prompt service initialized with directory: {Directory}", _promptsDirectory);
+        logger.LogInformation("Prompt service initialized with directory: {Directory}", directory);
+        return directory;
     }
 
     /// <summary>
@@ -41,13 +39,13 @@ public class PromptService : IPromptService
         {
             var template = GetOrCompileTemplate(templateName);
             var result = template(data);
-            _logger.LogTrace("Rendered template {TemplateName} with {Length} characters", 
+            logger.LogTrace("Rendered template {TemplateName} with {Length} characters", 
                 templateName, result.Length);
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to render template {TemplateName}", templateName);
+            logger.LogError(ex, "Failed to render template {TemplateName}", templateName);
             throw new InvalidOperationException($"Failed to render template '{templateName}': {ex.Message}", ex);
         }
     }
@@ -69,7 +67,7 @@ public class PromptService : IPromptService
             throw new FileNotFoundException($"Template file not found: {templatePath}");
         }
 
-        _logger.LogInformation("Compiling template: {TemplateName} from {Path}", 
+        logger.LogInformation("Compiling template: {TemplateName} from {Path}", 
             templateName, templatePath);
 
         var templateContent = File.ReadAllText(templatePath);
@@ -87,7 +85,7 @@ public class PromptService : IPromptService
     public void ClearCache()
     {
         _compiledTemplates.Clear();
-        _logger.LogInformation("Template cache cleared");
+        logger.LogInformation("Template cache cleared");
     }
 
     /// <summary>
@@ -97,7 +95,7 @@ public class PromptService : IPromptService
     {
         if (_compiledTemplates.Remove(templateName))
         {
-            _logger.LogInformation("Template {TemplateName} removed from cache for reload", templateName);
+            logger.LogInformation("Template {TemplateName} removed from cache for reload", templateName);
         }
     }
 

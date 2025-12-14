@@ -1,4 +1,5 @@
 using ALAN.ChatApi.Services;
+using ALAN.Shared.Services;
 using ALAN.Shared.Services.Memory;
 using ALAN.Shared.Services.Queue;
 using ALAN.Shared.Models;
