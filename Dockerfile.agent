@@ -4,15 +4,12 @@ WORKDIR /src
 
 # Copy solution and project files
 COPY ["ALAN.sln", "./"]
-COPY ["src/ALAN.Agent/ALAN.Agent.csproj", "src/ALAN.Agent/"]
-COPY ["src/ALAN.Web/ALAN.Web.csproj", "src/ALAN.Web/"]
-COPY ["src/ALAN.Shared/ALAN.Shared.csproj", "src/ALAN.Shared/"]
-
-# Restore dependencies
-RUN dotnet restore "ALAN.sln"
 
 # Copy all source files
 COPY . .
+
+# Restore dependencies
+RUN dotnet restore "ALAN.sln"
 
 # Build the agent project
 WORKDIR "/src/src/ALAN.Agent"

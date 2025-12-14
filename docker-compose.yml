@@ -1,10 +1,17 @@
 version: '3.8'
 
-# Anchors for reusable configurations
-x-azure-storage-connection: &azure-storage-connection
-  DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;
-
 services:
+  managed-identity:
+    image: ghcr.io/jeremy-morren/azure-cli-managed-identity:latest
+    volumes:
+      # Mount the host azure config into the container (read-only)
+      - "${AZURE_CONFIG_DIR:-${USERPROFILE:-~}/.azure}:/.azure:ro"
+    ports:
+      - '11430:80/tcp'
+    cpu_count: 1
+    mem_limit: 64m
+    networks:
+      - alan-network
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite:latest
     container_name: alan-azurite
@@ -17,6 +24,12 @@ services:
       - "10002:10002"  # Table service
     volumes:
       - azurite-data:/data
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "10000"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 1s
     networks:
       - alan-network
 
@@ -31,12 +44,16 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5041
-      - AZURE_STORAGE_CONNECTION_STRING=*azure-storage-connection
+      - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;
       - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
       - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
       - AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT:-gpt-4o-mini}
+      - MSI_ENDPOINT='http://managed-identity/token'
     depends_on:
-      - azurite
+      azurite:
+        condition: service_healthy
+      managed-identity:
+        condition: service_healthy
     networks:
       - alan-network
 
@@ -47,14 +64,21 @@ services:
     container_name: alan-agent
     restart: unless-stopped
     environment:
-      - AZURE_STORAGE_CONNECTION_STRING=*azure-storage-connection
+      - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;
       - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
       - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
       - AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT:-gpt-4o-mini}
       - AGENT_MAX_LOOPS_PER_DAY=${AGENT_MAX_LOOPS_PER_DAY:-4000}
       - AGENT_MAX_TOKENS_PER_DAY=${AGENT_MAX_TOKENS_PER_DAY:-8000000}
+      - GITHUB_MCP_PAT=${GITHUB_MCP_PAT}
+      - MSI_ENDPOINT='http://managed-identity/token'
+    volumes:
+      - ./src/ALAN.Agent/mcp-config.yaml:/app/mcp-config.yaml:ro
     depends_on:
-      - azurite
+      azurite:
+        condition: service_healthy
+      managed-identity:
+        condition: service_healthy
     networks:
       - alan-network
 
