@@ -23,12 +23,13 @@
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 350px 1fr 400px;
   gap: 1.5rem;
 }
 
-.main-panel,
-.side-panel {
+.left-panel,
+.center-panel,
+.right-panel {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -46,9 +47,27 @@
   padding: 4rem;
 }
 
+@media (max-width: 1400px) {
+  .dashboard-grid {
+    grid-template-columns: 300px 1fr 350px;
+  }
+}
+
 @media (max-width: 1024px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .left-panel {
+    order: 1;
+  }
+  
+  .center-panel {
+    order: 2;
+  }
+  
+  .right-panel {
+    order: 3;
   }
 }
 

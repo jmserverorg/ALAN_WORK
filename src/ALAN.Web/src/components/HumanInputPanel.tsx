@@ -80,6 +80,46 @@ function HumanInputPanel() {
     }
   };
 
+  const handleBatchLearning = async () => {
+    try {
+      const response = await fetch(`/api/batch-learning`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      setStatus({ type: 'success', message: 'Batch learning triggered!' });
+      setTimeout(() => setStatus(null), 3000);
+    } catch (err) {
+      setStatus({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : 'Failed to trigger batch learning' 
+      });
+    }
+  };
+
+  const handleMemoryConsolidation = async () => {
+    try {
+      const response = await fetch(`/api/memory-consolidation`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      setStatus({ type: 'success', message: 'Memory consolidation triggered!' });
+      setTimeout(() => setStatus(null), 3000);
+    } catch (err) {
+      setStatus({ 
+        type: 'error', 
+        message: err instanceof Error ? err.message : 'Failed to trigger memory consolidation' 
+      });
+    }
+  };
+
   return (
     <div className="panel human-input-panel">
       <h2>Human Steering</h2>
@@ -97,13 +137,25 @@ function HumanInputPanel() {
             Send Input
           </button>
           <button type="button" onClick={handlePause} className="btn-secondary">
-            Pause Agent
+            ⏸️ Pause Agent
           </button>
           <button type="button" onClick={handleResume} className="btn-secondary">
-            Resume Agent
+            ▶️ Resume Agent
           </button>
         </div>
       </form>
+
+      <div className="agent-controls">
+        <h3>Advanced Controls</h3>
+        <div className="button-group">
+          <button type="button" onClick={handleBatchLearning} className="btn-advanced">
+            📚 Trigger Batch Learning
+          </button>
+          <button type="button" onClick={handleMemoryConsolidation} className="btn-advanced">
+            🧠 Consolidate Memory
+          </button>
+        </div>
+      </div>
 
       {status && (
         <div className={`status-message ${status.type}`}>

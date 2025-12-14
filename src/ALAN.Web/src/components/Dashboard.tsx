@@ -94,13 +94,16 @@ function Dashboard() {
       </header>
 
       <div className="dashboard-grid">
-        <div className="main-panel">
+        <div className="left-panel">
           <AgentState state={state} />
           <HumanInputPanel />
         </div>
 
-        <div className="side-panel">
+        <div className="center-panel">
           <ThoughtsList thoughts={state.recentThoughts || []} />
+        </div>
+
+        <div className="right-panel">
           <ActionsList actions={state.recentActions || []} />
         </div>
       </div>

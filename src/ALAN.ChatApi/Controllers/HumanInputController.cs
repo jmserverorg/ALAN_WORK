@@ -99,6 +99,40 @@ public class HumanInputController : ControllerBase
         
         return Ok(new { message = "Agent resume queued" });
     }
+    
+    [HttpPost("batch-learning")]
+    public async Task<IActionResult> TriggerBatchLearning(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Received batch learning trigger command");
+        
+        var input = new HumanInput
+        {
+            Type = HumanInputType.TriggerBatchLearning,
+            Content = "Batch learning triggered by user"
+        };
+        
+        // Send to human input queue
+        await _humanInputQueue.SendAsync(input, cancellationToken);
+        
+        return Ok(new { message = "Batch learning triggered" });
+    }
+    
+    [HttpPost("memory-consolidation")]
+    public async Task<IActionResult> TriggerMemoryConsolidation(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Received memory consolidation trigger command");
+        
+        var input = new HumanInput
+        {
+            Type = HumanInputType.TriggerMemoryConsolidation,
+            Content = "Memory consolidation triggered by user"
+        };
+        
+        // Send to human input queue
+        await _humanInputQueue.SendAsync(input, cancellationToken);
+        
+        return Ok(new { message = "Memory consolidation triggered" });
+    }
 }
 
 public record UpdatePromptRequest(string Prompt);
