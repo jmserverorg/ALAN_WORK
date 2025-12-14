@@ -79,9 +79,11 @@ describe('ThoughtsList Component', () => {
 
   it('formats timestamp correctly', () => {
     render(<ThoughtsList thoughts={mockThoughts} />);
-    // Check that time is displayed (timestamps show as localized time like "11:00:00 AM")
-    expect(screen.getByText(/11:00:00 AM/)).toBeInTheDocument();
-    expect(screen.getByText(/11:01:00 AM/)).toBeInTheDocument();
+    // Check that timestamps are formatted as time strings (timezone-agnostic)
+    const expectedTime1 = new Date('2025-12-14T10:00:00Z').toLocaleTimeString();
+    const expectedTime2 = new Date('2025-12-14T10:01:00Z').toLocaleTimeString();
+    expect(screen.getByText(expectedTime1)).toBeInTheDocument();
+    expect(screen.getByText(expectedTime2)).toBeInTheDocument();
   });
 
   it('handles empty thoughts list', () => {
