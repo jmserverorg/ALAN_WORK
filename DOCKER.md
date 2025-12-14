@@ -1,7 +1,12 @@
 # Docker Deployment Guide
 
-## Prerequisites
+## Authentication Options
 
+### Option 1: Azure CLI Credentials (Development)
+
+Best for local development when you can't use API keys.
+
+**Prerequisites:**
 1. Docker and Docker Compose installed
 2. Azure CLI installed and authenticated (`az login`)
 3. Copy `.env.example` to `.env` and configure:
@@ -9,7 +14,33 @@
    - `AZURE_OPENAI_DEPLOYMENT` - Your deployment name (default: gpt-4o-mini)
    - `GITHUB_MCP_PAT` - (Optional) GitHub PAT for MCP integration
 
-**Note**: API keys are NOT required. The containers use your Azure CLI credentials from `az login`.
+The containers include Azure CLI and will use your local credentials.
+
+### Option 2: Service Principal (Production Recommended)
+
+Best for production deployments without API keys.
+
+1. Create a service principal:
+```bash
+az ad sp create-for-rbac --name alan-service-principal --role "Cognitive Services User" \
+  --scopes /subscriptions/{subscription-id}/resourceGroups/{resource-group}/providers/Microsoft.CognitiveServices/accounts/{openai-account}
+```
+
+2. Add to your `.env`:
+```bash
+AZURE_CLIENT_ID=<app-id from output>
+AZURE_TENANT_ID=<tenant from output>
+AZURE_CLIENT_SECRET=<password from output>
+```
+
+3. Uncomment the service principal environment variables in `docker-compose.yml`
+
+### Option 3: API Key (If Allowed)
+
+If your organization allows API keys, simply add to `.env`:
+```bash
+AZURE_OPENAI_API_KEY=your-key-here
+```
 
 ## Quick Start
 

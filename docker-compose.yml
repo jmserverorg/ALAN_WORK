@@ -36,8 +36,16 @@ services:
       - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;
       - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
       - AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT:-gpt-4o-mini}
+      # For Azure CLI credentials (development)
       - AZURE_CONFIG_DIR=/root/.azure
+      # For Service Principal (production - uncomment and set in .env)
+      #- AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      #- AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      #- AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
+      # For API Key (if allowed - set in .env)
+      #- AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
     volumes:
+      # Mount Azure CLI credentials (comment out if using service principal)
       - ${HOME}/.azure:/root/.azure:ro
     depends_on:
       azurite:
@@ -58,9 +66,17 @@ services:
       - AGENT_MAX_LOOPS_PER_DAY=${AGENT_MAX_LOOPS_PER_DAY:-4000}
       - AGENT_MAX_TOKENS_PER_DAY=${AGENT_MAX_TOKENS_PER_DAY:-8000000}
       - GITHUB_MCP_PAT=${GITHUB_MCP_PAT}
+      # For Azure CLI credentials (development)
       - AZURE_CONFIG_DIR=/root/.azure
+      # For Service Principal (production - uncomment and set in .env)
+      #- AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      #- AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      #- AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
+      # For API Key (if allowed - set in .env)
+      #- AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
     volumes:
       - ./src/ALAN.Agent/mcp-config.yaml:/app/mcp-config.yaml:ro
+      # Mount Azure CLI credentials (comment out if using service principal)
       - ${HOME}/.azure:/root/.azure:ro
     depends_on:
       azurite:
