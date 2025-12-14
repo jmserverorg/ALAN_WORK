@@ -3,15 +3,20 @@
 ## Prerequisites
 
 1. Docker and Docker Compose installed
-2. Copy `.env.example` to `.env` and configure:
+2. Azure CLI installed and authenticated (`az login`)
+3. Copy `.env.example` to `.env` and configure:
    - `AZURE_OPENAI_ENDPOINT` - Your Azure OpenAI endpoint
-   - `AZURE_OPENAI_API_KEY` - Your Azure OpenAI API key
    - `AZURE_OPENAI_DEPLOYMENT` - Your deployment name (default: gpt-4o-mini)
    - `GITHUB_MCP_PAT` - (Optional) GitHub PAT for MCP integration
+
+**Note**: API keys are NOT required. The containers use your Azure CLI credentials from `az login`.
 
 ## Quick Start
 
 ```bash
+# Ensure you're logged in with Azure CLI
+az login
+
 # Build and start all services
 docker compose up --build
 
@@ -64,6 +69,20 @@ docker compose down
 ```
 
 ## Troubleshooting
+
+### Azure Authentication Issues
+
+The containers use your local Azure CLI credentials. Ensure:
+```bash
+# Check you're logged in
+az account show
+
+# Re-login if needed
+az login
+
+# Verify OpenAI access
+az cognitiveservices account show --name <your-openai-resource> --resource-group <your-rg>
+```
 
 ### Azurite Connection Issues
 

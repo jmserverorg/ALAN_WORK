@@ -1,17 +1,6 @@
 version: '3.8'
 
 services:
-  managed-identity:
-    image: ghcr.io/jeremy-morren/azure-cli-managed-identity:latest
-    volumes:
-      # Mount the host azure config into the container (read-only)
-      - "${AZURE_CONFIG_DIR:-${USERPROFILE:-~}/.azure}:/.azure:ro"
-    ports:
-      - '11430:80/tcp'
-    cpu_count: 1
-    mem_limit: 64m
-    networks:
-      - alan-network
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite:latest
     container_name: alan-azurite
@@ -46,13 +35,12 @@ services:
       - ASPNETCORE_URLS=http://+:5041
       - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;
       - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
-      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
       - AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT:-gpt-4o-mini}
-      - MSI_ENDPOINT='http://managed-identity/token'
+      - AZURE_CONFIG_DIR=/root/.azure
+    volumes:
+      - ${HOME}/.azure:/root/.azure:ro
     depends_on:
       azurite:
-        condition: service_healthy
-      managed-identity:
         condition: service_healthy
     networks:
       - alan-network
@@ -66,18 +54,16 @@ services:
     environment:
       - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;
       - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
-      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
       - AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT:-gpt-4o-mini}
       - AGENT_MAX_LOOPS_PER_DAY=${AGENT_MAX_LOOPS_PER_DAY:-4000}
       - AGENT_MAX_TOKENS_PER_DAY=${AGENT_MAX_TOKENS_PER_DAY:-8000000}
       - GITHUB_MCP_PAT=${GITHUB_MCP_PAT}
-      - MSI_ENDPOINT='http://managed-identity/token'
+      - AZURE_CONFIG_DIR=/root/.azure
     volumes:
       - ./src/ALAN.Agent/mcp-config.yaml:/app/mcp-config.yaml:ro
+      - ${HOME}/.azure:/root/.azure:ro
     depends_on:
       azurite:
-        condition: service_healthy
-      managed-identity:
         condition: service_healthy
     networks:
       - alan-network
