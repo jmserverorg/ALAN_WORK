@@ -1,21 +1,80 @@
 version: '3.8'
 
 services:
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: alan-azurite
+    hostname: azurite
+    restart: unless-stopped
+    command: "azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --loose --skipApiVersionCheck"
+    ports:
+      - "10000:10000"  # Blob service
+      - "10001:10001"  # Queue service
+      - "10002:10002"  # Table service
+    volumes:
+      - azurite-data:/data
+    networks:
+      - alan-network
+
+  chatapi:
+    build:
+      context: .
+      dockerfile: Dockerfile.chatapi
+    container_name: alan-chatapi
+    restart: unless-stopped
+    ports:
+      - "5041:5041"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5041
+      - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT:-gpt-4o-mini}
+    depends_on:
+      - azurite
+    networks:
+      - alan-network
+
   alanagent:
     build:
       context: .
       dockerfile: Dockerfile.agent
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OpenAI__ModelId=gpt-4o-mini
+    container_name: alan-agent
     restart: unless-stopped
+    environment:
+      - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT:-gpt-4o-mini}
+      - AGENT_MAX_LOOPS_PER_DAY=${AGENT_MAX_LOOPS_PER_DAY:-4000}
+      - AGENT_MAX_TOKENS_PER_DAY=${AGENT_MAX_TOKENS_PER_DAY:-8000000}
+    depends_on:
+      - azurite
+    networks:
+      - alan-network
 
   alan-web:
     build:
       context: .
       dockerfile: Dockerfile.web
-    ports:
-      - "8080:80"
+    container_name: alan-web
     restart: unless-stopped
+    ports:
+      - "5269:5269"
+    environment:
+      - NODE_ENV=production
+      - PORT=5269
+      - CHATAPI_URL=http://chatapi:5041/api
+      - NEXT_PUBLIC_CHATAPI_URL=http://localhost:5041/api
     depends_on:
-      - alanagent
+      - chatapi
+    networks:
+      - alan-network
+
+volumes:
+  azurite-data:
+
+networks:
+  alan-network:
+    driver: bridge

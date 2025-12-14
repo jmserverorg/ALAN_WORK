@@ -1,32 +1,31 @@
-# Build stage
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /src
-
-# Copy solution and project files
-COPY ["ALAN.sln", "./"]
-COPY ["src/ALAN.Agent/ALAN.Agent.csproj", "src/ALAN.Agent/"]
-COPY ["src/ALAN.Web/ALAN.Web.csproj", "src/ALAN.Web/"]
-COPY ["src/ALAN.Shared/ALAN.Shared.csproj", "src/ALAN.Shared/"]
-
-# Restore dependencies
-RUN dotnet restore "ALAN.sln"
-
-# Copy all source files
-COPY . .
-
-# Build the web project
-WORKDIR "/src/src/ALAN.Web"
-RUN dotnet build "ALAN.Web.csproj" -c Release -o /app/build
-
-# Publish stage
-FROM build AS publish
-RUN dotnet publish "ALAN.Web.csproj" -c Release -o /app/publish /p:UseAppHost=false
-
-# Final stage
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+# Build stage for Next.js frontend
+FROM node:20-alpine AS frontend-build
 WORKDIR /app
-EXPOSE 80
-EXPOSE 443
 
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "ALAN.Web.dll"]
+# Copy package files
+COPY src/ALAN.Web/package*.json ./
+RUN npm ci --only=production
+
+# Copy source files
+COPY src/ALAN.Web .
+
+# Build Next.js app
+RUN npm run build
+
+# Final stage - serve with standalone Next.js
+FROM node:20-alpine AS runtime
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=5269
+
+# Copy standalone output
+COPY --from=frontend-build /app/.next/standalone ./
+COPY --from=frontend-build /app/.next/static ./.next/static
+COPY --from=frontend-build /app/public ./public
+
+# Expose port
+EXPOSE 5269
+
+# Start the Next.js server
+CMD ["node", "server.js"]

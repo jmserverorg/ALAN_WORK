@@ -19,22 +19,26 @@ ALAN (Autonomous Learning Agent Network) is a Semantic Kernel-based autonomous a
    - ASP.NET Core web API with REST endpoints
    - Provides all server-side logic for the web interface
    - Background service (`AgentStateService`) polls storage for agent state
-   - Exposes AG-UI/CopilotKit endpoint at `/copilotkit`
+   - Exposes CopilotKit endpoint at `/copilotkit` for AG-UI protocol
    - REST API controllers for state, human input, and code proposals
    - Entry point: `Program.cs`
+   - Ports: 5041 (HTTP), 5042 (HTTPS)
 
 3. **ALAN.Web** (Next.js Frontend)
 
-   - Next.js application with TypeScript using App Router
+   - Next.js 16 application with TypeScript using App Router
    - Built with Next.js for fast development and production builds
    - Real-time polling of agent state from ALAN.ChatApi
-   - CopilotKit integration for AI chat assistance
-   - No C# code - all server logic is in ALAN.ChatApi
+   - CopilotKit integration for AI chat assistance via AG-UI protocol
+   - No C# code - pure Next.js/React TypeScript application
    - Entry point: `src/app/page.tsx`
+   - Port: 5269
+   - **Standalone output** enabled for Docker deployment
 
 4. **ALAN.Shared**
    - Shared models between agent and API
    - Contains `AgentState.cs`, `AgentThought.cs`, `AgentAction.cs`
+   - Shared `PromptService` for Handlebars template rendering
 
 ## Running and Debugging
 
@@ -210,6 +214,22 @@ Configuration constants in `AutonomousAgent.cs`:
 
 ### Architecture and code Best Practices
 
+#### Docker and Deployment
+
+- **Use multi-stage builds** - Separate build and runtime stages for smaller images
+- **Layer caching** - Order COPY commands to maximize cache hits
+- **Production readiness** - Set appropriate environment variables and expose correct ports
+- **Health checks** - Implement health check endpoints for container orchestration
+- **Next.js standalone output** - Use `output: 'standalone'` in next.config.ts for Docker deployment
+
+#### Frontend Development (Next.js)
+
+- **Server and Client Components** - Use Server Components by default, Client Components only when needed
+- **TypeScript strict mode** - Enable strict type checking
+- **Environment variables** - Use `NEXT_PUBLIC_` prefix for client-side variables
+- **API routes** - Use Next.js API routes sparingly, prefer dedicated backend services
+- **Rewrites** - Configure rewrites in next.config.ts for API proxying
+
 #### Security
 
 - **Use managed identity** for Azure service authentication (avoid connection strings with secrets)
@@ -363,17 +383,17 @@ The project uses **xUnit** with **Moq** for testing. All new features and modifi
 
 | Project           | Location                   | Coverage                                                           |
 | ----------------- | -------------------------- | ------------------------------------------------------------------ |
-| ALAN.Agent.Tests  | `tests/ALAN.Agent.Tests/`  | UsageTracker, StateManager, CodeProposalService                    |
+| ALAN.Agent.Tests  | `tests/ALAN.Agent.Tests/`  | UsageTracker, StateManager, CodeProposalService, AutonomousAgent  |
 | ALAN.Shared.Tests | `tests/ALAN.Shared.Tests/` | AgentState, AgentThought, AgentAction, CodeProposal, Memory models |
-| ALAN.Web.Tests    | `tests/ALAN.Web.Tests/`    | AgentStateService                                                  |
+| ALAN.ChatApi.Tests| `tests/ALAN.ChatApi.Tests/`| AgentStateService, Controllers (State, HumanInput, CodeProposal)   |
 
 **Test Files:**
 
-- `tests/ALAN.Agent.Tests/Services/UsageTrackerTests.cs` - Cost control and throttling
-- `tests/ALAN.Agent.Tests/Services/StateManagerTests.cs` - State persistence and events
-- `tests/ALAN.Agent.Tests/Services/CodeProposalServiceTests.cs` - Proposal workflow
-- `tests/ALAN.Shared.Tests/Models/` - All shared model tests
-- `tests/ALAN.Web.Tests/Services/AgentStateServiceTests.cs` - Web service tests
+- `tests/ALAN.Agent.Tests/Services/` - Core agent services tests
+- `tests/ALAN.Shared.Tests/Models/` - All shared model tests  
+- `tests/ALAN.Shared.Tests/Services/` - Shared service tests
+- `tests/ALAN.ChatApi.Tests/Services/` - ChatApi service tests
+- `tests/ALAN.ChatApi.Tests/Controllers/` - API controller tests
 
 ### Running Tests
 
@@ -399,6 +419,51 @@ dotnet test --verbosity normal
 7. **Keep tests fast** - Unit tests should run in milliseconds
 
 For detailed test documentation, see `TEST_SUITE_SUMMARY.md`.
+
+## Docker and Deployment
+
+### Dockerfiles
+
+- **Dockerfile.agent** - Builds ALAN.Agent service
+- **Dockerfile.chatapi** - Builds ALAN.ChatApi service  
+- **Dockerfile.web** - Builds Next.js frontend with standalone output
+
+### Building Docker Images
+
+```bash
+# Build all services
+docker-compose build
+
+# Build specific service
+docker build -f Dockerfile.web -t alan-web .
+docker build -f Dockerfile.chatapi -t alan-chatapi .
+docker build -f Dockerfile.agent -t alan-agent .
+```
+
+### Running with Docker Compose
+
+```bash
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop all services
+docker-compose down
+```
+
+### Environment Variables for Docker
+
+Set these in `.env` file or pass to docker-compose:
+
+```env
+AZURE_OPENAI_ENDPOINT=https://your-instance.openai.azure.com/
+AZURE_OPENAI_API_KEY=your-key-here
+AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
+AGENT_MAX_LOOPS_PER_DAY=4000
+AGENT_MAX_TOKENS_PER_DAY=8000000
+```
 
 ## Quick Reference
 
