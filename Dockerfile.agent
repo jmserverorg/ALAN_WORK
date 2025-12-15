@@ -4,15 +4,12 @@ WORKDIR /src
 
 # Copy solution and project files
 COPY ["ALAN.sln", "./"]
-COPY ["src/ALAN.Agent/ALAN.Agent.csproj", "src/ALAN.Agent/"]
-COPY ["src/ALAN.Web/ALAN.Web.csproj", "src/ALAN.Web/"]
-COPY ["src/ALAN.Shared/ALAN.Shared.csproj", "src/ALAN.Shared/"]
-
-# Restore dependencies
-RUN dotnet restore "ALAN.sln"
 
 # Copy all source files
 COPY . .
+
+# Restore dependencies
+RUN dotnet restore "ALAN.sln"
 
 # Build the agent project
 WORKDIR "/src/src/ALAN.Agent"
@@ -25,6 +22,17 @@ RUN dotnet publish "ALAN.Agent.csproj" -c Release -o /app/publish /p:UseAppHost=
 # Final stage
 FROM mcr.microsoft.com/dotnet/runtime:8.0 AS final
 WORKDIR /app
+
+# Install Azure CLI for AzureCliCredential support
+RUN apt-get update && apt-get install -y curl gnupg lsb-release \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -sLS https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg \
+    && chmod go+r /etc/apt/keyrings/microsoft.gpg \
+    && echo "deb [arch=`dpkg --print-architecture` signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ `lsb_release -cs` main" > /etc/apt/sources.list.d/azure-cli.list \
+    && apt-get update \
+    && apt-get install -y azure-cli \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "ALAN.Agent.dll"]

@@ -8,7 +8,6 @@ obj/
 
 # Visual Studio
 .vs/
-.vscode/
 
 # Rider
 .idea/
@@ -34,6 +33,12 @@ package-lock.json
 # Build artifacts
 publish/
 dist/
+wwwroot/js/chat-app.bundle.js
+wwwroot/js/chat-app.bundle.js.map
+wwwroot/dist/
+
+# TypeScript build info
+*.tsbuildinfo
 
 # Temporary files
 *.tmp

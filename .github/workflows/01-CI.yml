@@ -32,9 +32,23 @@ jobs:
                   npx azurite-queue &
                   npx azurite-blob &
 
-            - name: build and test
+            - name: Build Next.js Frontend
+              run: |
+                  cd src/ALAN.Web
+                  npm install --include=dev
+                  npm run build
+
+            - name: Test Next.js Frontend
+              run: |
+                  cd src/ALAN.Web
+                  npm test
+
+            - name: Build .NET Projects
               run: |
                   dotnet build --configuration Release
+
+            - name: Run Tests
+              run: |
                   dotnet test --configuration Release --verbosity normal --logger trx --collect:"XPlat Code Coverage"
 
             - name: Publish Test Results

@@ -1,4 +1,5 @@
 using ALAN.Shared.Models;
+using ALAN.Shared.Services;
 using ALAN.Shared.Services.Memory;
 using ALAN.Shared.Services.Resilience;
 using Microsoft.Extensions.AI;
