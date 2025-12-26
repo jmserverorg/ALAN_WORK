@@ -28,7 +28,6 @@ Thumbs.db
 
 # Node modules (if any)
 node_modules/
-package-lock.json
 
 # Build artifacts
 publish/
@@ -51,3 +50,13 @@ src/ALAN.Web/wwwroot/lib/
 __azurite_*
 __*__/
 AzuriteConfig
+
+# Azure Developer CLI
+.azure/
+
+# Azure deployment outputs
+*.env.azure
+
+.venv
+results.sarif
+checkov_report.*

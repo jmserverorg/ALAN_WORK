@@ -1,5 +1,7 @@
 using ALAN.Shared.Models;
 using ALAN.Shared.Services.Resilience;
+using ALAN.Shared.Utilities;
+using Azure.Identity;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Logging;
@@ -33,7 +35,26 @@ public class AzureBlobLongTermMemoryService : ILongTermMemoryService
 
         try
         {
-            var blobServiceClient = new BlobServiceClient(connectionString);
+            BlobServiceClient blobServiceClient;
+            
+            // Check authentication method: AccountKey, SharedAccessSignature, UseDevelopmentStorage, or managed identity
+            if (connectionString.Contains("AccountKey=", StringComparison.OrdinalIgnoreCase) ||
+                connectionString.Contains("SharedAccessSignature=", StringComparison.OrdinalIgnoreCase) ||
+                connectionString.Contains("UseDevelopmentStorage=", StringComparison.OrdinalIgnoreCase))
+            {
+                // Traditional connection string (account key, SAS token, or Azurite)
+                blobServiceClient = new BlobServiceClient(connectionString);
+                _logger.LogInformation("Using connection string authentication for Azure Blob Storage");
+            }
+            else
+            {
+                // Extract account name and use managed identity
+                var accountName = AzureStorageConnectionStringHelper.ExtractAccountName(connectionString);
+                var blobEndpoint = new Uri($"https://{accountName}.blob.core.windows.net");
+                blobServiceClient = new BlobServiceClient(blobEndpoint, new DefaultAzureCredential());
+                _logger.LogInformation("Using managed identity authentication for Azure Blob Storage: {AccountName}", accountName);
+            }
+            
             _containerClient = blobServiceClient.GetBlobContainerClient(ContainerName);
             _logger.LogInformation("Azure Blob Long-Term Memory Service created with container: {ContainerName}", ContainerName);
         }
