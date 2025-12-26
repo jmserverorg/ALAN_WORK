@@ -61,7 +61,7 @@ param webContainerImage string
 @description('GitHub MCP PAT for the agent to access repositories')
 param github_mcp_pat string
 @description('GitHub project URL for the agent to access repositories')
-param github_project_url string = 'jmservera/ALAN'
+param github_project_url string
 
 @description('Tags to apply to all resources')
 param tags object

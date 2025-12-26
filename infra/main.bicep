@@ -86,7 +86,7 @@ param webContainerImage string = 'mcr.microsoft.com/azuredocs/containerapps-hell
 @secure()
 param github_mcp_pat string
 @description('GitHub project URL for the agent to access repositories')
-param github_project_url string = 'jmservera/ALAN'
+param github_project_url string = 'jmserverorg/ALAN_WORK'
 
 // ==================================
 // Variables
