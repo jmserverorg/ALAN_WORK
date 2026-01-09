@@ -28,7 +28,7 @@ free(arr);
 arr = NULL; // Set to NULL to avoid dangling pointers
 ```
 
-### 5. Minimize Dynamic Allocations in PerformanceCritical Sections
+### 5. Minimize Dynamic Allocations in Performance Critical Sections
 In performance-critical sections of code, minimize the use of dynamic allocations to prevent potential memory fragmentation and latency issues.
 
 ### 6. Use Memory Pooling When Possible
